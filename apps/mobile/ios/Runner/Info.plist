@@ -7,7 +7,11 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Medalert</string>
+	<string>MedAlert</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Para tomar una foto del accidente que estás reportando.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Para enviar a la ambulancia el lugar del accidente.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
