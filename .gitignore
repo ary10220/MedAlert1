@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.local
+*.log
+dist/
+build/
+.DS_Store
+*.apk
+*.ipa
+.flutter-plugins*
+.dart_tool/
+.idea/
+.vscode/
+.supabase/
