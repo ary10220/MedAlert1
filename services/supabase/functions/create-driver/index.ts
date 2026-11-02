@@ -11,9 +11,14 @@ serve(async (req) => {
   const licenciaCategoria = input.licencia_categoria == null ? null : requiredText(input.licencia_categoria, 'licencia_categoria', 30)
   const telefono = input.telefono == null ? null : requiredText(input.telefono, 'telefono', 40)
   const licenciaVence = input.licencia_vence
-  if (licenciaVence != null && (typeof licenciaVence !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(licenciaVence) || Number.isNaN(Date.parse(licenciaVence)))) {
-    throw new HttpError(400, 'Invalid licencia_vence')
+  if (licenciaVence != null) {
+    if (typeof licenciaVence !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(licenciaVence)) {
+      throw new HttpError(400, 'Invalid licencia_vence')
+    }
+    const parsed = new Date(`${licenciaVence}T00:00:00Z`)
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== licenciaVence) {
+      throw new HttpError(400, 'Invalid licencia_vence')
+    }
   }
   const { data: hospital, error: hospitalError } = await client.from('hospitals')
     .select('id').eq('id', hospitalId).eq('activo', true).maybeSingle()

@@ -79,7 +79,8 @@ serve(async (req) => {
     tipo_accidente: result.tipo_accidente,
     cantidad_heridos: result.cantidad_heridos_estimada,
     ia_suggested_type: result.suggested_unit,
-  }).eq('id', incidentId).eq('foto_url', incident.foto_url).select('id').maybeSingle()
+  }).eq('id', incidentId).eq('foto_url', incident.foto_url)
+    .in('estado', ['open', 'searching']).select('id').maybeSingle()
   if (updateError) throw updateError
   if (!updated) throw new HttpError(409, 'Incident changed during triage')
   await audit(client, user.id, 'incident_triaged', incidentId, { model, priority: result.priority })

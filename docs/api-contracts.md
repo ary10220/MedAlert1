@@ -16,7 +16,7 @@ Todas las rutas son `POST {SUPABASE_URL}/functions/v1/{nombre}` con `Content-Typ
 ## Flujo y datos
 
 1. La app sube la foto a Storage privado `incident-photos/{reporter_id}/{archivo}`, crea el incidente con `foto_url` igual a la ruta del objeto y llama `triage-ia`. La IA es apoyo visual, no diagnóstico; un humano revisa.
-2. `dispatch` pasa de `open` a `searching`, busca hospitales activos en radios 5→10→15→20 km, inserta `incident_offers` y avisa al staff. Si ninguno aparece, devuelve lista vacía. El hospital ve ofertas por RLS.
+2. `dispatch` pasa de `open` a `searching`, busca hospitales activos en radios 5→10→15→20 km, inserta `incident_offers` y avisa al staff. Si ninguno aparece, devuelve lista vacía. El hospital ve ofertas abiertas por RLS; se cierran al aceptar o cancelar el caso.
 3. `accept-incident` usa `accept_incident_atomic`: bloquea incidente y ambulancia, confirma hospital ofrecido, unidad disponible y chofer activo/licencia vigente, asigna ambos y escribe auditoría. Una segunda aceptación devuelve 409.
 4. `update-incident-status` permite `assigned → on_site → completed` al staff asignado y cancelación de un caso no terminal por staff asignado o admin. `report-false-alarm` cancela un caso asignado, escribe auditoría e inbox admin.
 5. `notify` es interno y requiere la service role key en `Authorization`. Sin Firebase configurado devuelve `skipped:true` sin fallar el flujo principal. FCM es best effort.

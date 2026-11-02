@@ -56,6 +56,7 @@ create table incident_offers (
   radius_km int not null,
   distance_km double precision not null,
   created_at timestamptz not null default now(),
+  closed_at timestamptz,
   primary key (incident_id, hospital_id)
 );
 create index idx_incident_offers_hospital on incident_offers(hospital_id);
@@ -87,7 +88,10 @@ create policy "usuario gestiona sus tokens" on fcm_tokens
 create policy "admin ve inbox" on admin_inbox
   for select to authenticated using (current_profile_role() = 'admin');
 create policy "hospital ve sus ofertas" on incident_offers
-  for select to authenticated using (hospital_id = current_hospital_id() or current_profile_role() = 'admin');
+  for select to authenticated using (
+    (hospital_id = current_hospital_id() and closed_at is null)
+    or current_profile_role() = 'admin'
+  );
 create policy "usuario ve su perfil" on profiles
   for select to authenticated using (id = auth.uid());
 create policy "admin gestiona perfiles" on profiles
@@ -175,7 +179,8 @@ begin
     return 'not_offered';
   end if;
   select * into v_ambulance from ambulances where id = p_ambulance_id for update;
-  if not found or v_ambulance.hospital_id <> v_hospital or v_ambulance.estado <> 'disponible' or not v_ambulance.activa then
+  if not found or v_ambulance.hospital_id is distinct from v_hospital
+    or v_ambulance.estado is distinct from 'disponible' or v_ambulance.activa is not true then
     return 'ambulance_unavailable';
   end if;
   if v_ambulance.driver_id is null or not exists (
@@ -186,6 +191,7 @@ begin
   update incidents set estado = 'assigned', assigned_hospital_id = v_hospital,
     assigned_ambulance_id = p_ambulance_id, dispatched_by = p_actor_id, assigned_at = now()
     where id = p_incident_id;
+  update incident_offers set closed_at = now() where incident_id = p_incident_id;
   insert into audit_log(actor_id, action, entity, entity_id, payload)
     values (p_actor_id, 'incident_assigned', 'incident', p_incident_id,
       jsonb_build_object('hospital_id', v_hospital, 'ambulance_id', p_ambulance_id));
@@ -222,6 +228,9 @@ begin
     on_site_at = case when p_new_status = 'on_site' then now() else on_site_at end,
     completed_at = case when p_new_status = 'completed' then now() else completed_at end
     where id = p_incident_id;
+  if p_new_status = 'cancelled' then
+    update incident_offers set closed_at = now() where incident_id = p_incident_id;
+  end if;
   if p_new_status in ('completed','cancelled') and v_incident.assigned_ambulance_id is not null then
     update ambulances set estado = 'disponible' where id = v_incident.assigned_ambulance_id;
   end if;
@@ -247,10 +256,11 @@ begin
   if v_hospital is null then return 'forbidden'; end if;
   select * into v_incident from incidents where id = p_incident_id for update;
   if not found then return 'not_found'; end if;
-  if v_incident.assigned_hospital_id <> v_hospital then return 'forbidden'; end if;
+  if v_incident.assigned_hospital_id is distinct from v_hospital then return 'forbidden'; end if;
   if v_incident.estado not in ('assigned','on_site') then return 'invalid_transition'; end if;
   update incidents set estado = 'cancelled', false_alarm_reason = p_reason,
     marked_false_by = p_actor_id, marked_false_at = now() where id = p_incident_id;
+  update incident_offers set closed_at = now() where incident_id = p_incident_id;
   if v_incident.assigned_ambulance_id is not null then
     update ambulances set estado = 'disponible' where id = v_incident.assigned_ambulance_id;
   end if;
