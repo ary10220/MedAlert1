@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../data/mock_store.dart';
+import '../data/backend.dart';
 import '../data/validators.dart';
 import '../models/usuario.dart';
+import '../widgets/aviso_error.dart';
 
 class RegistroScreen extends StatefulWidget {
   const RegistroScreen({super.key});
@@ -18,8 +19,11 @@ class _RegistroScreenState extends State<RegistroScreen> {
   final _ci = TextEditingController();
   final _telefono = TextEditingController();
   final _email = TextEditingController();
+  final _password = TextEditingController();
   var _modo = AutovalidateMode.disabled;
   var _ocultarPassword = true;
+  var _cargando = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -27,22 +31,35 @@ class _RegistroScreenState extends State<RegistroScreen> {
     _ci.dispose();
     _telefono.dispose();
     _email.dispose();
+    _password.dispose();
     super.dispose();
   }
 
-  void _crearCuenta() {
-    if (_formKey.currentState!.validate()) {
-      // El redirect del router lleva a home al abrirse la sesión.
-      mockStore.registrar(
-        Usuario(
+  Future<void> _crearCuenta() async {
+    if (_cargando) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _modo = AutovalidateMode.onUserInteraction);
+      return;
+    }
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+    try {
+      // Con la sesión abierta, el redirect del router lleva a home.
+      await backend.registrar(
+        usuario: Usuario(
           nombre: _nombre.text.trim(),
           ci: _ci.text.trim(),
           telefono: _telefono.text.trim(),
           email: _email.text.trim(),
         ),
+        password: _password.text,
       );
-    } else {
-      setState(() => _modo = AutovalidateMode.onUserInteraction);
+    } on BackendException catch (e) {
+      if (mounted) setState(() => _error = e.mensaje);
+    } finally {
+      if (mounted) setState(() => _cargando = false);
     }
   }
 
@@ -110,6 +127,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
+                  controller: _password,
                   obscureText: _ocultarPassword,
                   textInputAction: TextInputAction.done,
                   autofillHints: const [AutofillHints.newPassword],
@@ -132,10 +150,19 @@ class _RegistroScreenState extends State<RegistroScreen> {
                   ),
                   validator: Validators.password,
                 ),
+                if (_error != null) ...[
+                  const SizedBox(height: 16),
+                  AvisoError(mensaje: _error!),
+                ],
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: _crearCuenta,
-                  child: const Text('Crear cuenta'),
+                  onPressed: _cargando ? null : _crearCuenta,
+                  child: _cargando
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(strokeWidth: 3),
+                        )
+                      : const Text('Crear cuenta'),
                 ),
               ],
             ),

@@ -4,11 +4,13 @@ import '../models/incident.dart';
 import '../theme/app_theme.dart';
 import '../theme/colors.dart';
 
-Color colorDeEstado(IncidentStatus estado) =>
-    estado.buscando ? AppColors.amber : AppColors.mint;
-
-Color colorDePrioridad(String prioridad) =>
-    prioridad == 'P1' ? AppColors.pulse : AppColors.amber;
+/// Ámbar mientras se busca hospital, mint cuando ya hay atención.
+Color colorDeEstado(IncidentStatus estado, ColorScheme scheme) =>
+    switch (estado) {
+      IncidentStatus.open || IncidentStatus.searching => AppColors.amber,
+      IncidentStatus.cancelled => scheme.outline,
+      _ => AppColors.mint,
+    };
 
 class EstadoChip extends StatelessWidget {
   const EstadoChip({super.key, required this.estado});
@@ -16,8 +18,10 @@ class EstadoChip extends StatelessWidget {
   final IncidentStatus estado;
 
   @override
-  Widget build(BuildContext context) =>
-      EtiquetaChip(texto: estado.etiqueta, color: colorDeEstado(estado));
+  Widget build(BuildContext context) => EtiquetaChip(
+    texto: estado.etiqueta,
+    color: colorDeEstado(estado, Theme.of(context).colorScheme),
+  );
 }
 
 class EtiquetaChip extends StatelessWidget {

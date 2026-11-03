@@ -9,14 +9,10 @@ abstract final class Rutas {
   static const historial = '/home/historial';
   static const perfil = '/home/perfil';
 
-  static String buscando(String id) => '/home/buscando/$id';
   static String seguimiento(String id) => '/home/seguimiento/$id';
   static String detalle(String id) => '/home/historial/$id';
 
-  /// Pantalla que corresponde a un reporte según su estado.
-  static String paraReporte(Incident reporte) {
-    if (reporte.estado.buscando) return buscando(reporte.id);
-    if (reporte.estado.activo) return seguimiento(reporte.id);
-    return detalle(reporte.id);
-  }
+  /// Un reporte en curso se sigue en vivo; uno cerrado se ve en el detalle.
+  static String paraReporte(Incident reporte) =>
+      reporte.estado.activo ? seguimiento(reporte.id) : detalle(reporte.id);
 }

@@ -3,7 +3,7 @@ import 'package:medalert/data/mock_data.dart';
 import 'package:medalert/data/validators.dart';
 
 void main() {
-  test('el usuario de la ficha pasa todas las validaciones', () {
+  test('el usuario de prueba pasa todas las validaciones', () {
     expect(Validators.nombre(mockUsuario['nombre']), isNull);
     expect(Validators.ci(mockUsuario['ci']), isNull);
     expect(Validators.telefono(mockUsuario['telefono']), isNull);
@@ -32,16 +32,16 @@ void main() {
     expect(Validators.nombre('Juan 23'), isNotNull);
   });
 
-  test('correo y contraseña', () {
+  test('correo', () {
     expect(Validators.email('a@b.bo'), isNull);
     expect(Validators.email('a@b'), isNotNull);
     expect(Validators.email('a b@c.bo'), isNotNull);
-    expect(Validators.password('12345678'), isNull);
-    expect(Validators.password('1234567'), isNotNull);
   });
 
-  test('dirección escrita a mano', () {
-    expect(Validators.direccion('Av. Banzer km 3'), isNull);
-    expect(Validators.direccion('  ab '), isNotNull);
+  test('la contraseña nueva exige 8 caracteres; la de ingreso no', () {
+    expect(Validators.password('12345678'), isNull);
+    expect(Validators.password('1234567'), isNotNull);
+    expect(Validators.passwordIngreso('123'), isNull);
+    expect(Validators.passwordIngreso(''), isNotNull);
   });
 }

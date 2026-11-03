@@ -82,3 +82,51 @@ class LocationService {
     }
   }
 }
+
+/// La última ubicación conocida. Home la pide al abrirse, así el reporte no
+/// espera la primera señal del GPS.
+class UbicacionActual extends ChangeNotifier {
+  UbicacionActual([this.servicio = const LocationService()]);
+
+  final LocationService servicio;
+  LocationResult? _ultima;
+  DateTime? _momento;
+  Future<LocationResult>? _enCurso;
+
+  LocationResult? get ultima => _ultima;
+  bool get buscando => _enCurso != null;
+
+  /// La última posición válida, si todavía es reciente.
+  LocationResult? get reciente {
+    final ultima = _ultima;
+    final momento = _momento;
+    if (ultima == null || !ultima.ok || momento == null) return null;
+    return LocationService.esReciente(momento, DateTime.now()) ? ultima : null;
+  }
+
+  Future<LocationResult> actualizar() {
+    final enCurso = _enCurso;
+    if (enCurso != null) return enCurso;
+    final busqueda = _buscar();
+    _enCurso = busqueda;
+    notifyListeners();
+    return busqueda;
+  }
+
+  Future<LocationResult> _buscar() async {
+    try {
+      final resultado = await servicio.obtener();
+      _ultima = resultado;
+      _momento = DateTime.now();
+      return resultado;
+    } finally {
+      _enCurso = null;
+      notifyListeners();
+    }
+  }
+
+  Future<void> abrirAjustes(LocationFailure fallo) =>
+      servicio.abrirAjustes(fallo);
+}
+
+UbicacionActual ubicacionActual = UbicacionActual();

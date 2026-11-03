@@ -1,8 +1,20 @@
+// Datos del modo demo. Los estados y hospitales coinciden con el backend
+// (services/supabase/seed/hospitals.sql).
+
 final mockUsuario = {
   'nombre': 'Ariany Claure',
   'ci': '12345678',
   'telefono': '75684006',
   'email': 'ariany@medalert.bo',
+};
+
+final mockHospitales = {
+  'Clínica Foianini': {'direccion': 'Av. Irala 468', 'telefono': '77000001'},
+  'Hospital Japonés': {
+    'direccion': 'Av. Japón 3er anillo',
+    'telefono': '77000002',
+  },
+  'Caja Petrolera': {'direccion': 'Av. Alemana', 'telefono': '77000003'},
 };
 
 final mockReportes = [
@@ -12,9 +24,7 @@ final mockReportes = [
     'estado': 'completed',
     'ubicacion': 'Av. Cristo Redentor 4to anillo',
     'hospital_asignado': 'Clínica Foianini',
-    'eta_min': 5,
     'foto_url': 'https://picsum.photos/seed/acc1/400/300',
-    'prioridad': 'P1',
   },
   {
     'id': 'inc-002',
@@ -22,27 +32,14 @@ final mockReportes = [
     'estado': 'completed',
     'ubicacion': 'Av. Banzer km 3',
     'hospital_asignado': 'Hospital Japonés',
-    'eta_min': 8,
     'foto_url': 'https://picsum.photos/seed/acc2/400/300',
-    'prioridad': 'P2',
   },
   {
     'id': 'inc-003',
     'fecha': '2026-10-30 12:40',
-    'estado': 'on_route',
+    'estado': 'assigned',
     'ubicacion': 'Av. Alemana 3er anillo',
     'hospital_asignado': 'Caja Petrolera',
-    'eta_min': 4,
     'foto_url': 'https://picsum.photos/seed/acc3/400/300',
-    'prioridad': 'P1',
   },
-];
-
-final estadosFlujo = [
-  'Reportado',
-  'Buscando ambulancia',
-  'Asignada',
-  'En camino',
-  'En el lugar',
-  'Completado',
 ];

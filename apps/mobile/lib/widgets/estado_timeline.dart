@@ -5,7 +5,8 @@ import '../theme/app_theme.dart';
 import '../theme/colors.dart';
 import 'estado_chip.dart';
 
-/// Los seis pasos de `estadosFlujo`, con el actual resaltado.
+/// Los pasos del flujo normal, con el actual resaltado. Un reporte cancelado
+/// no tiene un paso que marcar, así que no se dibuja.
 class EstadoTimeline extends StatelessWidget {
   const EstadoTimeline({super.key, required this.estado});
 
@@ -13,14 +14,15 @@ class EstadoTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pasos = IncidentStatus.values;
+    if (estado == IncidentStatus.cancelled) return const SizedBox.shrink();
+    const pasos = IncidentStatus.flujo;
+    final posicion = pasos.indexOf(estado);
     return Column(
       children: [
-        for (final paso in pasos)
+        for (final (indice, paso) in pasos.indexed)
           _Paso(
             paso: paso,
-            hecho:
-                paso.index < estado.index || estado == IncidentStatus.completed,
+            hecho: indice < posicion || estado == IncidentStatus.completed,
             actual: paso == estado && estado.activo,
             ultimo: paso == pasos.last,
           ),
@@ -65,7 +67,7 @@ class _Paso extends StatelessWidget {
                     color: hecho
                         ? AppColors.mint
                         : actual
-                        ? colorDeEstado(paso)
+                        ? colorDeEstado(paso, scheme)
                         : Colors.transparent,
                     border: pendiente
                         ? Border.all(color: scheme.outline, width: 2)

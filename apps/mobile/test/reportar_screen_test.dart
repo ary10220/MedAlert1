@@ -4,50 +4,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:medalert/data/backend.dart';
 import 'package:medalert/data/location_service.dart';
-import 'package:medalert/data/mock_store.dart';
+import 'package:medalert/data/mock_backend.dart';
 import 'package:medalert/data/photo_service.dart';
 import 'package:medalert/models/incident.dart';
 import 'package:medalert/screens/reportar_screen.dart';
 import 'package:medalert/theme/app_theme.dart';
 
-const _gpsOk = LocationResult.ok(-17.78333, -63.18211);
+import 'fakes.dart';
 
-class _FakeUbicacion extends LocationService {
-  _FakeUbicacion(this.resultados);
+/// Falla el primer envío después de crear el incidente, como un `dispatch`
+/// que no responde.
+class _BackendQueFallaUnaVez extends MockBackend {
+  _BackendQueFallaUnaVez() : super(demoraRed: Duration.zero);
 
-  final List<FutureOr<LocationResult>> resultados;
-  var abrioAjustes = false;
-
-  @override
-  Future<LocationResult> obtener() async => resultados.length > 1
-      ? await resultados.removeAt(0)
-      : await resultados.first;
+  final envios = <EnvioReporte>[];
 
   @override
-  Future<void> abrirAjustes(LocationFailure fallo) async => abrioAjustes = true;
-}
-
-class _FakeFotos extends PhotoService {
-  _FakeFotos(this.resultados);
-
-  final List<Object?> resultados;
-  var aperturas = 0;
-
-  @override
-  Future<String?> tomarFoto() async {
-    aperturas++;
-    final resultado = resultados.length > 1
-        ? resultados.removeAt(0)
-        : resultados.first;
-    if (resultado is Exception) throw resultado;
-    return resultado as String?;
+  Future<Incident> enviarReporte(
+    EnvioReporte envio, {
+    void Function(PasoEnvio paso)? alAvanzar,
+  }) async {
+    envios.add(envio);
+    if (envios.length == 1) {
+      envio.incidentId = 'creado-antes-del-fallo';
+      throw const BackendException('Sin conexión. Revisá tu internet.');
+    }
+    return super.enviarReporte(envio, alAvanzar: alAvanzar);
   }
 }
 
 Future<void> _abrir(
   WidgetTester tester, {
-  required LocationService ubicacion,
   required PhotoService fotos,
   Size tamano = const Size(412, 915),
 }) async {
@@ -64,13 +53,12 @@ Future<void> _abrir(
         routes: [
           GoRoute(
             path: 'reportar',
-            builder: (context, state) =>
-                ReportarScreen(ubicacion: ubicacion, fotos: fotos),
+            builder: (context, state) => ReportarScreen(fotos: fotos),
           ),
           GoRoute(
-            path: 'buscando/:id',
+            path: 'seguimiento/:id',
             builder: (context, state) =>
-                Text('BUSCANDO ${state.pathParameters['id']}'),
+                Text('SEGUIMIENTO ${state.pathParameters['id']}'),
           ),
         ],
       ),
@@ -87,244 +75,177 @@ Future<void> _abrir(
   await tester.pump();
 }
 
+FilledButton _boton(WidgetTester tester) =>
+    tester.widget<FilledButton>(find.byType(FilledButton));
+
 void main() {
-  setUp(mockStore.reiniciar);
+  setUp(() {
+    backend = MockBackend(demoraRed: const Duration(milliseconds: 100));
+    ubicacionActual = UbicacionActual(FakeUbicacion([gpsOk]));
+  });
 
-  testWidgets('con foto y GPS se envía solo, sin más toques', (tester) async {
-    final fotos = _FakeFotos(['foto.jpg']);
-    await _abrir(tester, ubicacion: _FakeUbicacion([_gpsOk]), fotos: fotos);
+  testWidgets('abre la cámara y envía solo cuando el testigo confirma', (
+    tester,
+  ) async {
+    final fotos = FakeFotos(['foto.jpg']);
+    await _abrir(tester, fotos: fotos);
 
-    expect(fotos.aperturas, 1, reason: 'abre la cámara al entrar');
-    expect(find.text('ENVIAR AHORA (5)'), findsOneWidget);
+    expect(fotos.aperturasCamara, 1, reason: 'entra directo a la cámara');
+    expect(find.text('Ubicación lista'), findsOneWidget);
     expect(find.text('-17.78333, -63.18211'), findsOneWidget);
+    expect(find.text('Cambiar foto'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.text('ENVIAR AHORA (4)'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 10));
+    expect(backend.reportes, hasLength(3), reason: 'no se envía solo');
 
-    await tester.pump(const Duration(seconds: 4));
+    await tester.tap(find.text('Enviar alerta'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Subiendo la foto…'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Creando el reporte…'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Avisando a hospitales cercanos…'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
 
-    final creado = mockStore.reportes.first;
+    final creado = backend.reportes.first;
     expect(creado.id, 'inc-004');
-    expect(creado.estado, IncidentStatus.reported);
-    expect(creado.ubicacion, '-17.78333, -63.18211');
     expect(creado.fotoLocal, 'foto.jpg');
-    expect(find.text('BUSCANDO inc-004'), findsOneWidget);
+    expect(creado.coordenadas, '-17.78333, -63.18211');
+    expect(find.text('SEGUIMIENTO inc-004'), findsOneWidget);
   });
 
-  testWidgets('ENVIAR AHORA no espera la cuenta y no duplica', (tester) async {
-    await _abrir(
-      tester,
-      ubicacion: _FakeUbicacion([_gpsOk]),
-      fotos: _FakeFotos(['foto.jpg']),
-    );
+  testWidgets('sin foto no se puede enviar; la galería sirve igual', (
+    tester,
+  ) async {
+    final fotos = FakeFotos([null]);
+    await _abrir(tester, fotos: fotos);
 
-    await tester.tap(find.text('ENVIAR AHORA (5)'));
+    expect(find.text('La foto aparecerá aquí'), findsOneWidget);
+    expect(find.text('Tomar foto'), findsOneWidget);
+    expect(_boton(tester).onPressed, isNull);
+
+    await tester.tap(find.text('Elegir de la galería'));
     await tester.pump();
-    await tester.pump(const Duration(seconds: 8));
-
-    expect(mockStore.reportes, hasLength(4));
-    expect(find.text('BUSCANDO inc-004'), findsOneWidget);
+    await tester.pump();
+    expect(fotos.aperturasGaleria, 1);
+    expect(find.text('Cambiar foto'), findsOneWidget);
+    expect(_boton(tester).onPressed, isNotNull);
   });
 
-  testWidgets('Cancelar detiene la cuenta y no crea el reporte', (
+  testWidgets('un error de la cámara avisa y deja elegir otra vez', (
     tester,
   ) async {
     await _abrir(
       tester,
-      ubicacion: _FakeUbicacion([_gpsOk]),
-      fotos: _FakeFotos(['foto.jpg']),
+      fotos: FakeFotos([PlatformException(code: 'no_available_camera')]),
     );
-
-    await tester.tap(find.text('Cancelar'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 8));
-
-    expect(mockStore.reportes, hasLength(3));
-    expect(find.text('HOME'), findsOneWidget);
-  });
-
-  testWidgets('si cierra la cámara puede reintentar o seguir sin foto', (
-    tester,
-  ) async {
-    final fotos = _FakeFotos([null, 'foto.jpg']);
-    await _abrir(tester, ubicacion: _FakeUbicacion([_gpsOk]), fotos: fotos);
-
-    expect(find.text('Falta la foto'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 8));
-    expect(mockStore.reportes, hasLength(3), reason: 'no envía sin decidir');
-
-    await tester.tap(find.text('Tomar foto'));
-    await tester.pump();
-    await tester.pump();
-    expect(fotos.aperturas, 2);
-    expect(find.text('ENVIAR AHORA (5)'), findsOneWidget);
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('sin foto también se puede reportar', (tester) async {
-    await _abrir(
-      tester,
-      ubicacion: _FakeUbicacion([_gpsOk]),
-      fotos: _FakeFotos([null]),
-    );
-
-    await tester.tap(find.text('Continuar sin foto'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pump();
-
-    expect(mockStore.reportes.first.fotoLocal, isNull);
-    expect(find.text('BUSCANDO inc-004'), findsOneWidget);
-  });
-
-  testWidgets('un error de la cámara no bloquea el reporte', (tester) async {
-    await _abrir(
-      tester,
-      ubicacion: _FakeUbicacion([_gpsOk]),
-      fotos: _FakeFotos([PlatformException(code: 'no_available_camera')]),
-    );
-
     expect(find.text('No se pudo abrir la cámara'), findsOneWidget);
-    expect(find.text('Continuar sin foto'), findsOneWidget);
-    await tester.pumpWidget(const SizedBox());
+    expect(find.text('Tomar foto'), findsOneWidget);
   });
 
-  testWidgets('espera al GPS antes de empezar la cuenta', (tester) async {
+  testWidgets('usa al instante la ubicación que home ya obtuvo', (
+    tester,
+  ) async {
     final gps = Completer<LocationResult>();
-    await _abrir(
-      tester,
-      ubicacion: _FakeUbicacion([gps.future]),
-      fotos: _FakeFotos(['foto.jpg']),
-    );
+    ubicacionActual = UbicacionActual(FakeUbicacion([gpsOk, gps.future]));
+    await ubicacionActual.actualizar();
 
-    expect(find.text('Esperando GPS…'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 8));
-    expect(mockStore.reportes, hasLength(3));
-
-    gps.complete(_gpsOk);
-    await tester.pump();
-    await tester.pump();
-    expect(find.text('ENVIAR AHORA (5)'), findsOneWidget);
-    await tester.pumpWidget(const SizedBox());
+    await _abrir(tester, fotos: FakeFotos(['foto.jpg']));
+    expect(find.text('Ubicación lista'), findsOneWidget);
+    expect(_boton(tester).onPressed, isNotNull);
+    gps.complete(gpsOk);
   });
 
-  testWidgets('sin GPS pide la dirección y la valida', (tester) async {
-    await _abrir(
-      tester,
-      ubicacion: _FakeUbicacion([
-        const LocationResult.fallo(LocationFailure.permisoDenegado),
-      ]),
-      fotos: _FakeFotos(['foto.jpg']),
-    );
+  testWidgets('espera al GPS antes de habilitar el envío', (tester) async {
+    final gps = Completer<LocationResult>();
+    ubicacionActual = UbicacionActual(FakeUbicacion([gps.future]));
+    await _abrir(tester, fotos: FakeFotos(['foto.jpg']));
 
-    expect(find.text('Sin permiso de ubicación'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 8));
-    expect(mockStore.reportes, hasLength(3), reason: 'no se envía solo');
+    expect(find.text('Buscando tu ubicación…'), findsOneWidget);
+    expect(_boton(tester).onPressed, isNull);
 
-    await tester.tap(find.text('ENVIAR'));
-    await tester.pump();
-    expect(find.text('Escribe dónde es'), findsOneWidget);
-    expect(mockStore.reportes, hasLength(3));
-
-    await tester.enterText(find.byType(TextFormField), 'Av. Banzer km 3');
-    await tester.tap(find.text('ENVIAR'));
+    gps.complete(gpsOk);
     await tester.pump();
     await tester.pump();
-
-    expect(mockStore.reportes.first.ubicacion, 'Av. Banzer km 3');
-    expect(find.text('BUSCANDO inc-004'), findsOneWidget);
+    expect(_boton(tester).onPressed, isNotNull);
   });
 
-  testWidgets('sin GPS permite reintentar y abrir ajustes', (tester) async {
-    final ubicacion = _FakeUbicacion([
-      const LocationResult.fallo(LocationFailure.servicioApagado),
-      _gpsOk,
+  testWidgets('sin permiso de GPS explica y ofrece ajustes', (tester) async {
+    final servicio = FakeUbicacion([
+      const LocationResult.fallo(LocationFailure.permisoDenegado),
     ]);
-    await _abrir(tester, ubicacion: ubicacion, fotos: _FakeFotos(['foto.jpg']));
+    ubicacionActual = UbicacionActual(servicio);
+    await _abrir(tester, fotos: FakeFotos(['foto.jpg']));
 
-    expect(find.text('El GPS está apagado'), findsOneWidget);
+    expect(find.textContaining('Sin permiso de ubicación'), findsOneWidget);
+    expect(_boton(tester).onPressed, isNull);
     await tester.tap(find.text('Abrir ajustes'));
     await tester.pump();
-    expect(ubicacion.abrioAjustes, isTrue);
-
-    await tester.tap(find.text('Reintentar'));
-    await tester.pump();
-    await tester.pump();
-    expect(find.text('ENVIAR AHORA (5)'), findsOneWidget);
-    await tester.pumpWidget(const SizedBox());
+    expect(servicio.abrioAjustes, isTrue);
   });
 
-  testWidgets('sin señal sigue buscando y arranca la cuenta si la encuentra', (
-    tester,
-  ) async {
-    final ubicacion = _FakeUbicacion([
-      const LocationResult.fallo(LocationFailure.sinSenal),
-      const LocationResult.fallo(LocationFailure.sinSenal),
-      _gpsOk,
-    ]);
-    await _abrir(tester, ubicacion: ubicacion, fotos: _FakeFotos(['foto.jpg']));
-
-    expect(find.text('Sin señal de GPS, seguimos buscando'), findsOneWidget);
-    await tester.enterText(find.byType(TextFormField), 'Av. Ban');
+  testWidgets('sin señal sigue buscando hasta encontrarla', (tester) async {
+    ubicacionActual = UbicacionActual(
+      FakeUbicacion([
+        const LocationResult.fallo(LocationFailure.sinSenal),
+        const LocationResult.fallo(LocationFailure.sinSenal),
+        gpsOk,
+      ]),
+    );
+    await _abrir(tester, fotos: FakeFotos(['foto.jpg']));
+    expect(find.textContaining('seguimos buscando'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 1));
     await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(find.text('Ubicación lista'), findsOneWidget);
+    expect(_boton(tester).onPressed, isNotNull);
+  });
+
+  testWidgets('si el envío falla, reintenta el mismo reporte', (tester) async {
+    final falla = _BackendQueFallaUnaVez();
+    backend = falla;
+    await _abrir(tester, fotos: FakeFotos(['foto.jpg']));
+
+    await tester.tap(find.text('Enviar alerta'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Sin conexión. Revisá tu internet.'), findsOneWidget);
+    expect(find.text('Reintentar envío'), findsOneWidget);
     expect(
-      tester.widget<TextFormField>(find.byType(TextFormField)).controller?.text,
-      'Av. Ban',
-      reason: 'reintentar no borra lo que escribe',
+      find.text('Cambiar foto'),
+      findsNothing,
+      reason: 'el incidente ya existe: la foto queda fija',
     );
 
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump();
-    expect(find.text('-17.78333, -63.18211'), findsOneWidget);
-    expect(find.text('ENVIAR AHORA (5)'), findsOneWidget);
-    await tester.pumpWidget(const SizedBox());
-  });
-
-  testWidgets('al enviar con dirección deja de buscar señal', (tester) async {
-    final ubicacion = _FakeUbicacion([
-      const LocationResult.fallo(LocationFailure.sinSenal),
-    ]);
-    await _abrir(tester, ubicacion: ubicacion, fotos: _FakeFotos(['foto.jpg']));
-
-    await tester.enterText(find.byType(TextFormField), 'Av. Banzer km 3');
-    await tester.tap(find.text('ENVIAR'));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 5));
-
-    expect(mockStore.reportes, hasLength(4));
-    expect(mockStore.reportes.first.ubicacion, 'Av. Banzer km 3');
-    expect(find.text('BUSCANDO inc-004'), findsOneWidget);
-  });
-
-  group('sin desbordes en un celular chico con letra grande', () {
-    final casos = <String, (LocationResult, String?)>{
-      'con foto y GPS': (_gpsOk, 'foto.jpg'),
-      'sin foto': (_gpsOk, null),
-      'sin GPS': (
-        const LocationResult.fallo(LocationFailure.servicioApagado),
-        'foto.jpg',
-      ),
-    };
-
-    for (final MapEntry(key: nombre, value: (gps, foto)) in casos.entries) {
-      testWidgets(nombre, (tester) async {
-        tester.platformDispatcher.textScaleFactorTestValue = 1.5;
-        addTearDown(tester.platformDispatcher.clearAllTestValues);
-
-        await _abrir(
-          tester,
-          ubicacion: _FakeUbicacion([gps]),
-          fotos: _FakeFotos([foto]),
-          tamano: const Size(320, 568),
-        );
-
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox());
-      });
+    await tester.tap(find.text('Reintentar envío'));
+    for (var i = 0; i < 6; i++) {
+      // Sin duración, pump no avanza el reloj y la demora simulada no termina.
+      await tester.pump(const Duration(milliseconds: 10));
     }
+
+    expect(falla.envios, hasLength(2));
+    expect(falla.envios[1], same(falla.envios[0]));
+    expect(find.textContaining('SEGUIMIENTO'), findsOneWidget);
+  });
+
+  testWidgets('sin desbordes en un celular chico con letra grande', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+    addTearDown(tester.platformDispatcher.clearAllTestValues);
+    ubicacionActual = UbicacionActual(
+      FakeUbicacion([
+        const LocationResult.fallo(LocationFailure.servicioApagado),
+      ]),
+    );
+    await _abrir(
+      tester,
+      fotos: FakeFotos(['foto.jpg']),
+      tamano: const Size(320, 568),
+    );
+    expect(tester.takeException(), isNull);
   });
 }

@@ -7,21 +7,21 @@ abstract final class Validators {
 
   static String? nombre(String? valor) {
     final texto = valor?.trim() ?? '';
-    if (texto.isEmpty) return 'Escribe tu nombre';
-    if (!_nombre.hasMatch(texto)) return 'Usa solo letras (mínimo 3)';
+    if (texto.isEmpty) return 'Escribí tu nombre';
+    if (!_nombre.hasMatch(texto)) return 'Usá solo letras (mínimo 3)';
     return null;
   }
 
   static String? ci(String? valor) {
     final texto = valor?.trim() ?? '';
-    if (texto.isEmpty) return 'Escribe tu CI';
+    if (texto.isEmpty) return 'Escribí tu CI';
     if (!_ci.hasMatch(texto)) return 'CI no válido';
     return null;
   }
 
   static String? telefono(String? valor) {
     final texto = valor?.trim() ?? '';
-    if (texto.isEmpty) return 'Escribe tu teléfono';
+    if (texto.isEmpty) return 'Escribí tu teléfono';
     if (!_telefono.hasMatch(texto)) {
       return '8 dígitos, empieza con 6 o 7';
     }
@@ -30,19 +30,19 @@ abstract final class Validators {
 
   static String? email(String? valor) {
     final texto = valor?.trim() ?? '';
-    if (texto.isEmpty) return 'Escribe tu correo';
+    if (texto.isEmpty) return 'Escribí tu correo';
     if (!_email.hasMatch(texto)) return 'Correo no válido';
     return null;
   }
 
+  /// Para crear la cuenta.
   static String? password(String? valor) {
-    if (valor == null || valor.isEmpty) return 'Escribe tu contraseña';
+    if (valor == null || valor.isEmpty) return 'Escribí una contraseña';
     if (valor.length < minPassword) return 'Mínimo $minPassword caracteres';
     return null;
   }
 
-  static String? direccion(String? valor) {
-    if ((valor?.trim().length ?? 0) < 5) return 'Escribe dónde es';
-    return null;
-  }
+  /// Para entrar: la cuenta pudo crearse con otra regla, así que no se exige largo.
+  static String? passwordIngreso(String? valor) =>
+      valor == null || valor.isEmpty ? 'Escribí tu contraseña' : null;
 }

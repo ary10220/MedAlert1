@@ -36,14 +36,17 @@ class ReporteCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      reporte.ubicacion,
+                      reporte.titulo,
                       style: theme.textTheme.titleSmall?.conPeso(
                         FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      reporte.fechaTexto,
+                      [
+                        reporte.fechaTexto,
+                        ?reporte.hospital?.nombre,
+                      ].join(' · '),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

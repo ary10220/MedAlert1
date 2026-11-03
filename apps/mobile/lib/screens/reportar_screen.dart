@@ -5,23 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/backend.dart';
 import '../data/location_service.dart';
-import '../data/mock_store.dart';
 import '../data/photo_service.dart';
-import '../data/validators.dart';
 import '../rutas.dart';
 import '../theme/colors.dart';
+import '../widgets/aviso_error.dart';
 
-/// Entra directo a la cámara. Con la foto y el GPS listos el reporte se envía
-/// solo tras una cuenta regresiva: dos toques en total (reportar y disparar).
+/// "Revisá la foto" del prototipo testigo.html. Entra directo a la cámara;
+/// el reporte sale cuando el testigo toca "Enviar alerta".
 class ReportarScreen extends StatefulWidget {
-  const ReportarScreen({
-    super.key,
-    this.ubicacion = const LocationService(),
-    this.fotos = const PhotoService(),
-  });
+  const ReportarScreen({super.key, this.fotos = const PhotoService()});
 
-  final LocationService ubicacion;
   final PhotoService fotos;
 
   @override
@@ -29,62 +24,56 @@ class ReportarScreen extends StatefulWidget {
 }
 
 class _ReportarScreenState extends State<ReportarScreen> {
-  static const _segundosParaEnviar = 5;
-
-  final _formKey = GlobalKey<FormState>();
-  final _direccion = TextEditingController();
-
   LocationResult? _gps;
   String? _foto;
-  var _camaraAbierta = false;
-  var _sinFoto = false;
-  var _enviado = false;
-  Timer? _cuenta;
+  var _eligiendo = false;
   Timer? _reintentoGps;
-  var _restante = _segundosParaEnviar;
 
-  bool get _fotoResuelta => _foto != null || _sinFoto;
-  bool get _gpsFallo => _gps != null && !_gps!.ok;
+  EnvioReporte? _envio;
+  PasoEnvio? _paso;
+  String? _error;
+
+  bool get _enviando => _paso != null;
+
+  /// Con el incidente ya creado, la foto y la ubicación quedan fijas.
+  bool get _reporteCreado => _envio?.incidentId != null;
+
+  bool get _listo =>
+      _foto != null && (_gps?.ok ?? false) && !_enviando && !_eligiendo;
 
   @override
   void initState() {
     super.initState();
-    _buscarGps();
+    _gps = ubicacionActual.reciente;
+    unawaited(_buscarGps());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _abrirCamara();
+      if (mounted) unawaited(_elegirFoto(widget.fotos.tomarFoto));
     });
   }
 
   @override
   void dispose() {
-    _cuenta?.cancel();
     _reintentoGps?.cancel();
-    _direccion.dispose();
     super.dispose();
   }
 
-  Future<void> _buscarGps({bool mostrarCarga = true}) async {
-    if (mostrarCarga && _gps != null) setState(() => _gps = null);
-    final resultado = await widget.ubicacion.obtener();
-    if (!mounted || _enviado) return;
-    // La primera señal puede tardar más que el límite: se sigue intentando
-    // mientras el testigo puede escribir la dirección.
+  Future<void> _buscarGps() async {
+    final resultado = await ubicacionActual.actualizar();
+    if (!mounted || _reporteCreado) return;
+    // La primera señal puede tardar más que el límite: se sigue intentando.
     if (resultado.fallo == LocationFailure.sinSenal) {
-      _reintentoGps = Timer(
-        const Duration(seconds: 1),
-        () => _buscarGps(mostrarCarga: false),
-      );
+      _reintentoGps = Timer(const Duration(seconds: 1), _buscarGps);
     }
-    setState(() => _gps = resultado);
-    _iniciarCuentaSiCorresponde();
+    // Una posición válida reciente vale más que un fallo nuevo.
+    if (resultado.ok || !(_gps?.ok ?? false)) setState(() => _gps = resultado);
   }
 
-  Future<void> _abrirCamara() async {
-    _detenerCuenta();
-    setState(() => _camaraAbierta = true);
+  Future<void> _elegirFoto(Future<String?> Function() origen) async {
+    if (_eligiendo || _enviando || _reporteCreado) return;
+    setState(() => _eligiendo = true);
     String? ruta;
     try {
-      ruta = await widget.fotos.tomarFoto();
+      ruta = await origen();
     } on PlatformException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -94,75 +83,129 @@ class _ReportarScreenState extends State<ReportarScreen> {
     }
     if (!mounted) return;
     setState(() {
-      _camaraAbierta = false;
+      _eligiendo = false;
       if (ruta != null) {
         _foto = ruta;
-        _sinFoto = false;
-      }
-    });
-    _iniciarCuentaSiCorresponde();
-  }
-
-  void _continuarSinFoto() {
-    setState(() => _sinFoto = true);
-    _iniciarCuentaSiCorresponde();
-  }
-
-  void _iniciarCuentaSiCorresponde() {
-    if (_cuenta != null || _enviado || !_fotoResuelta) return;
-    if (_gps == null || !_gps!.ok) return;
-    setState(() => _restante = _segundosParaEnviar);
-    _cuenta = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_restante <= 1) {
-        _enviar();
-      } else {
-        setState(() => _restante--);
+        _error = null;
       }
     });
   }
 
-  void _detenerCuenta() {
-    _cuenta?.cancel();
-    _cuenta = null;
-  }
-
-  void _enviar() {
-    if (_enviado) return;
-    final ubicacion = _gps?.ok == true ? _gps!.texto : _direccion.text.trim();
-    if (ubicacion.isEmpty) return;
-    _enviado = true;
-    _detenerCuenta();
-    _reintentoGps?.cancel();
-    final reporte = mockStore.crearReporte(
-      ubicacion: ubicacion,
-      fotoLocal: _foto,
-    );
-    context.go(Rutas.buscando(reporte.id));
-  }
-
-  void _enviarConDireccion() {
-    if (_formKey.currentState?.validate() ?? false) _enviar();
+  Future<void> _enviar() async {
+    final gps = _gps;
+    final foto = _foto;
+    if (!_listo || gps == null || foto == null) return;
+    final anterior = _envio;
+    // Un envío fallido se reintenta igual, salvo que haya cambiado la foto
+    // antes de crear el incidente.
+    _envio = anterior != null && (anterior.fotoLocal == foto || _reporteCreado)
+        ? anterior
+        : EnvioReporte(
+            fotoLocal: foto,
+            latitud: gps.latitud!,
+            longitud: gps.longitud!,
+          );
+    setState(() {
+      _error = null;
+      _paso = PasoEnvio.subiendoFoto;
+    });
+    try {
+      final reporte = await backend.enviarReporte(
+        _envio!,
+        alAvanzar: (paso) {
+          if (mounted) setState(() => _paso = paso);
+        },
+      );
+      if (!mounted) return;
+      _reintentoGps?.cancel();
+      context.go(Rutas.seguimiento(reporte.id));
+    } on BackendException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _paso = null;
+        _error = e.mensaje;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Reportar accidente')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AspectRatio(aspectRatio: 4 / 3, child: _zonaFoto()),
+    final theme = Theme.of(context);
+    return PopScope(
+      canPop: !_enviando,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Revisá la foto')),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            children: [
+              Text(
+                'Confirmá que muestra el lugar o la situación. Un hospital '
+                'cercano la evaluará junto con tu ubicación.',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              AspectRatio(aspectRatio: 4 / 3, child: _zonaFoto()),
+              const SizedBox(height: 16),
+              _zonaGps(),
+              if (_error != null) ...[
                 const SizedBox(height: 16),
-                _zonaGps(),
-                const SizedBox(height: 20),
-                ..._acciones(),
+                AvisoError(mensaje: _error!),
               ],
-            ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 64,
+                child: FilledButton(
+                  onPressed: _listo ? _enviar : null,
+                  child: _enviando
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox.square(
+                              dimension: 22,
+                              child: CircularProgressIndicator(strokeWidth: 3),
+                            ),
+                            const SizedBox(width: 12),
+                            Flexible(child: Text(_paso!.texto)),
+                          ],
+                        )
+                      : Text(
+                          _error != null && _envio != null
+                              ? 'Reintentar envío'
+                              : 'Enviar alerta',
+                        ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (!_reporteCreado) ...[
+                OutlinedButton.icon(
+                  onPressed: _enviando || _eligiendo
+                      ? null
+                      : () => _elegirFoto(widget.fotos.tomarFoto),
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: Text(_foto == null ? 'Tomar foto' : 'Cambiar foto'),
+                ),
+                const SizedBox(height: 4),
+                TextButton.icon(
+                  onPressed: _enviando || _eligiendo
+                      ? null
+                      : () => _elegirFoto(widget.fotos.elegirDeGaleria),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Elegir de la galería'),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Text(
+                'Compartiremos la foto solo con el equipo que atienda este '
+                'reporte.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -170,64 +213,30 @@ class _ReportarScreenState extends State<ReportarScreen> {
   }
 
   Widget _zonaFoto() {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
+    final foto = _foto;
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: ColoredBox(
         color: scheme.surfaceContainer,
-        child: _foto != null
-            ? Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.file(
-                    File(_foto!),
-                    fit: BoxFit.cover,
-                    semanticLabel: 'Foto del accidente',
-                    errorBuilder: (context, _, _) => Icon(
-                      Icons.image_not_supported_outlined,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: IconButton.filledTonal(
-                      tooltip: 'Repetir foto',
-                      icon: const Icon(Icons.replay),
-                      onPressed: _abrirCamara,
-                    ),
-                  ),
-                ],
-              )
-            : _camaraAbierta
-            ? const Center(child: CircularProgressIndicator())
-            : Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _sinFoto
-                            ? Icons.no_photography_outlined
-                            : Icons.photo_camera_outlined,
-                        size: 40,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: _abrirCamara,
-                        child: const Text('Tomar foto'),
-                      ),
-                      if (!_sinFoto)
-                        TextButton(
-                          onPressed: _continuarSinFoto,
-                          child: const Text('Continuar sin foto'),
-                        ),
-                    ],
-                  ),
+        child: foto != null
+            ? Image.file(
+                File(foto),
+                fit: BoxFit.cover,
+                semanticLabel: 'Foto del accidente',
+                errorBuilder: (context, _, _) => Icon(
+                  Icons.image_not_supported_outlined,
+                  color: scheme.onSurfaceVariant,
                 ),
+              )
+            : Center(
+                child: _eligiendo
+                    ? const CircularProgressIndicator()
+                    : Text(
+                        'La foto aparecerá aquí',
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
               ),
       ),
     );
@@ -260,7 +269,20 @@ class _ReportarScreenState extends State<ReportarScreen> {
         children: [
           const Icon(Icons.location_on, color: AppColors.mint),
           const SizedBox(width: 12),
-          Expanded(child: Text(gps.texto, style: theme.textTheme.titleMedium)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Ubicación lista', style: theme.textTheme.titleMedium),
+                Text(
+                  gps.texto,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       );
     }
@@ -275,24 +297,18 @@ class _ReportarScreenState extends State<ReportarScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(switch (fallo) {
-                LocationFailure.servicioApagado => 'El GPS está apagado',
-                LocationFailure.permisoDenegado => 'Sin permiso de ubicación',
+                LocationFailure.servicioApagado =>
+                  'El GPS está apagado. Sin ubicación no se puede reportar.',
+                LocationFailure.permisoDenegado =>
+                  'Sin permiso de ubicación. Sin ubicación no se puede '
+                      'reportar.',
                 LocationFailure.sinSenal =>
-                  'Sin señal de GPS, seguimos buscando',
+                  'Sin señal de GPS, seguimos buscando…',
               }, style: theme.textTheme.titleMedium),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _direccion,
-          textInputAction: TextInputAction.done,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(labelText: '¿Dónde es?'),
-          validator: Validators.direccion,
-        ),
-        if (fallo != LocationFailure.sinSenal) ...[
-          const SizedBox(height: 4),
+        if (fallo != LocationFailure.sinSenal)
           Wrap(
             spacing: 8,
             children: [
@@ -301,50 +317,12 @@ class _ReportarScreenState extends State<ReportarScreen> {
                 child: const Text('Reintentar'),
               ),
               TextButton(
-                onPressed: () => widget.ubicacion.abrirAjustes(fallo),
+                onPressed: () => ubicacionActual.abrirAjustes(fallo),
                 child: const Text('Abrir ajustes'),
               ),
             ],
           ),
-        ],
       ],
     );
-  }
-
-  List<Widget> _acciones() {
-    final enCuenta = _cuenta != null;
-    final String etiqueta;
-    final VoidCallback? accion;
-    if (enCuenta) {
-      etiqueta = 'ENVIAR AHORA ($_restante)';
-      accion = _enviar;
-    } else if (_gpsFallo && _fotoResuelta) {
-      etiqueta = 'ENVIAR';
-      accion = _enviarConDireccion;
-    } else if (!_fotoResuelta) {
-      etiqueta = 'Falta la foto';
-      accion = null;
-    } else {
-      etiqueta = 'Esperando GPS…';
-      accion = null;
-    }
-
-    return [
-      SizedBox(
-        height: 68,
-        child: FilledButton(
-          onPressed: accion,
-          child: FittedBox(fit: BoxFit.scaleDown, child: Text(etiqueta)),
-        ),
-      ),
-      const SizedBox(height: 10),
-      OutlinedButton(
-        onPressed: () {
-          _detenerCuenta();
-          context.pop();
-        },
-        child: const Text('Cancelar'),
-      ),
-    ];
   }
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'data/mock_store.dart';
+import 'config.dart';
+import 'data/backend.dart';
+import 'data/supabase_backend.dart';
 import 'rutas.dart';
-import 'screens/buscando_screen.dart';
 import 'screens/detalle_reporte_screen.dart';
 import 'screens/historial_screen.dart';
 import 'screens/home_screen.dart';
@@ -15,18 +17,27 @@ import 'screens/seguimiento_screen.dart';
 import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (AppConfig.conBackend) {
+    await Supabase.initialize(
+      url: AppConfig.supabaseUrl,
+      // Sirve tanto la anon key (JWT) como la publishable key nueva.
+      publishableKey: AppConfig.supabaseAnonKey,
+    );
+    backend = SupabaseBackend(Supabase.instance.client);
+  }
   runApp(const MedAlertApp());
 }
 
 GoRouter crearRouter({String inicial = Rutas.splash}) => GoRouter(
   initialLocation: inicial,
-  refreshListenable: mockStore,
+  refreshListenable: backend,
   redirect: (context, state) {
     final ruta = state.matchedLocation;
     final publica = ruta == Rutas.splash || _esDeAcceso(ruta);
-    if (!mockStore.sesionActiva && !publica) return Rutas.login;
-    if (mockStore.sesionActiva && _esDeAcceso(ruta)) return Rutas.home;
+    if (!backend.sesionActiva && !publica) return Rutas.login;
+    if (backend.sesionActiva && _esDeAcceso(ruta)) return Rutas.home;
     return null;
   },
   routes: [
@@ -49,11 +60,6 @@ GoRouter crearRouter({String inicial = Rutas.splash}) => GoRouter(
         GoRoute(
           path: 'reportar',
           builder: (context, state) => const ReportarScreen(),
-        ),
-        GoRoute(
-          path: 'buscando/:id',
-          builder: (context, state) =>
-              BuscandoScreen(reporteId: state.pathParameters['id']!),
         ),
         GoRoute(
           path: 'seguimiento/:id',

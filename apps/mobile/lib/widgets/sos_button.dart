@@ -13,6 +13,7 @@ class SosButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final diametro = size * 0.72;
+    final texto = Theme.of(context).textTheme;
     return PulseRings(
       color: AppColors.pulse,
       size: size,
@@ -26,26 +27,34 @@ class SosButton extends StatelessWidget {
           child: InkWell(
             onTap: onPressed,
             child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.emergency,
-                    color: Colors.white,
-                    size: diametro * 0.3,
-                  ),
-                  const SizedBox(height: 8),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      'REPORTAR',
-                      style: Theme.of(context).textTheme.titleLarge
-                          ?.conPeso(FontWeight.w800)
-                          .copyWith(color: Colors.white, letterSpacing: 1),
+              padding: EdgeInsets.all(diametro * 0.12),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.photo_camera_outlined,
+                      color: Colors.white,
+                      size: diametro * 0.2,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    Text(
+                      'Reportar\nemergencia',
+                      textAlign: TextAlign.center,
+                      style: texto.titleLarge
+                          ?.conPeso(FontWeight.w800)
+                          .copyWith(color: Colors.white, height: 1.15),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Tomar o cargar foto',
+                      style: texto.labelLarge
+                          ?.conPeso(FontWeight.w600)
+                          .copyWith(color: Colors.white.withValues(alpha: 0.9)),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

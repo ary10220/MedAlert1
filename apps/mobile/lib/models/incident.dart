@@ -1,33 +1,47 @@
 import 'package:intl/intl.dart';
 
-import '../data/mock_data.dart';
-
-/// Mismo orden que [estadosFlujo]. Solo `on_route` y `completed` aparecen en la
-/// ficha; el resto de los códigos se ajusta cuando esté el schema real.
+/// Estados de `incidents.estado` en el backend.
 enum IncidentStatus {
-  reported('reported'),
-  searching('searching'),
-  assigned('assigned'),
-  onRoute('on_route'),
-  onScene('on_scene'),
-  completed('completed');
+  open('open', 'Reportado'),
+  searching('searching', 'Buscando hospital'),
+  assigned('assigned', 'Ambulancia asignada'),
+  onSite('on_site', 'Ambulancia en el lugar'),
+  completed('completed', 'Atención completada'),
+  cancelled('cancelled', 'Reporte cerrado');
 
-  const IncidentStatus(this.code);
+  const IncidentStatus(this.code, this.etiqueta);
 
   factory IncidentStatus.fromCode(String code) =>
       values.firstWhere((estado) => estado.code == code);
 
   final String code;
+  final String etiqueta;
 
-  String get etiqueta => estadosFlujo[index];
+  /// El camino normal de un reporte; `cancelled` queda fuera.
+  static const flujo = [open, searching, assigned, onSite, completed];
 
-  bool get activo => this != completed;
+  bool get activo => this != completed && this != cancelled;
 
-  /// Todavía no hay ambulancia confirmada.
-  bool get buscando => this == reported || this == searching;
+  /// Todavía ningún hospital confirmó la atención.
+  bool get buscando => this == open || this == searching;
+}
 
-  /// La ambulancia todavía no llegó, así que el tiempo estimado sigue vigente.
-  bool get conEta => this == assigned || this == onRoute;
+class Hospital {
+  const Hospital({required this.nombre, this.direccion, this.telefono});
+
+  final String nombre;
+  final String? direccion;
+  final String? telefono;
+}
+
+class Ambulancia {
+  const Ambulancia({this.codigo, this.placa, this.tipo});
+
+  final String? codigo;
+  final String? placa;
+  final String? tipo;
+
+  String get descripcion => [?codigo, ?placa].join(' · ');
 }
 
 class Incident {
@@ -35,51 +49,66 @@ class Incident {
     required this.id,
     required this.fecha,
     required this.estado,
-    required this.ubicacion,
-    this.hospitalAsignado,
-    this.etaMin,
+    this.ubicacion,
+    this.latitud,
+    this.longitud,
     this.fotoUrl,
     this.fotoLocal,
-    this.prioridad,
+    this.hospital,
+    this.ambulancia,
+    this.hospitalesAvisados,
   });
-
-  factory Incident.fromMap(Map<String, Object> map) => Incident(
-    id: map['id']! as String,
-    fecha: DateTime.parse(map['fecha']! as String),
-    estado: IncidentStatus.fromCode(map['estado']! as String),
-    ubicacion: map['ubicacion']! as String,
-    hospitalAsignado: map['hospital_asignado'] as String?,
-    etaMin: map['eta_min'] as int?,
-    fotoUrl: map['foto_url'] as String?,
-    prioridad: map['prioridad'] as String?,
-  );
 
   final String id;
   final DateTime fecha;
   final IncidentStatus estado;
-  final String ubicacion;
-  final String? hospitalAsignado;
-  final int? etaMin;
+
+  /// Dirección escrita, solo en los datos simulados: el backend guarda el punto.
+  final String? ubicacion;
+  final double? latitud;
+  final double? longitud;
+
+  /// URL de red: la de los datos simulados o una firmada de Storage.
   final String? fotoUrl;
+
+  /// La foto recién tomada, mientras siga en el teléfono.
   final String? fotoLocal;
-  final String? prioridad;
+  final Hospital? hospital;
+  final Ambulancia? ambulancia;
+
+  /// Hospitales a los que `dispatch` ofreció el caso.
+  final int? hospitalesAvisados;
+
+  String get titulo => ubicacion ?? 'Reporte de emergencia';
+
+  String? get coordenadas => latitud == null || longitud == null
+      ? null
+      : '${latitud!.toStringAsFixed(5)}, ${longitud!.toStringAsFixed(5)}';
 
   String get fechaTexto => DateFormat('dd/MM/yyyy HH:mm').format(fecha);
 
+  /// Los 8 primeros caracteres del UUID, para leerlo por teléfono.
+  String get codigo => id.length > 8 ? id.substring(0, 8) : id;
+
   Incident copyWith({
     IncidentStatus? estado,
-    String? hospitalAsignado,
-    int? etaMin,
-    String? prioridad,
+    double? latitud,
+    double? longitud,
+    String? fotoUrl,
+    Hospital? hospital,
+    Ambulancia? ambulancia,
+    int? hospitalesAvisados,
   }) => Incident(
     id: id,
     fecha: fecha,
     estado: estado ?? this.estado,
     ubicacion: ubicacion,
-    hospitalAsignado: hospitalAsignado ?? this.hospitalAsignado,
-    etaMin: etaMin ?? this.etaMin,
-    fotoUrl: fotoUrl,
+    latitud: latitud ?? this.latitud,
+    longitud: longitud ?? this.longitud,
+    fotoUrl: fotoUrl ?? this.fotoUrl,
     fotoLocal: fotoLocal,
-    prioridad: prioridad ?? this.prioridad,
+    hospital: hospital ?? this.hospital,
+    ambulancia: ambulancia ?? this.ambulancia,
+    hospitalesAvisados: hospitalesAvisados ?? this.hospitalesAvisados,
   );
 }

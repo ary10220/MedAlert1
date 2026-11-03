@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/mock_store.dart';
+import '../data/backend.dart';
 import '../rutas.dart';
 import '../theme/app_theme.dart';
 import '../theme/colors.dart';
@@ -16,21 +16,19 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  Timer? _timer;
-
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: 1400), () {
-      if (!mounted) return;
-      context.go(mockStore.sesionActiva ? Rutas.home : Rutas.login);
-    });
+    unawaited(_continuar());
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  Future<void> _continuar() async {
+    await Future.wait([
+      backend.restaurarSesion(),
+      Future<void>.delayed(const Duration(milliseconds: 1200)),
+    ]);
+    if (!mounted) return;
+    context.go(backend.sesionActiva ? Rutas.home : Rutas.login);
   }
 
   @override

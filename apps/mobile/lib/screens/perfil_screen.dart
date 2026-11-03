@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_store.dart';
+import '../data/backend.dart';
 import '../theme/app_theme.dart';
 import '../theme/colors.dart';
 import '../widgets/info_row.dart';
@@ -11,7 +11,7 @@ class PerfilScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final usuario = mockStore.usuario;
+    final usuario = backend.usuario;
     return Scaffold(
       appBar: AppBar(title: const Text('Mi perfil')),
       body: SafeArea(
@@ -60,7 +60,7 @@ class PerfilScreen extends StatelessWidget {
                   const SizedBox(height: 28),
                   // El redirect del router lleva a login al cerrarse la sesión.
                   OutlinedButton(
-                    onPressed: mockStore.cerrarSesion,
+                    onPressed: backend.cerrarSesion,
                     child: const Text('Cerrar sesión'),
                   ),
                 ],
