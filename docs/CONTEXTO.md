@@ -1,6 +1,6 @@
 # Contexto del proyecto MedAlert
 
-Actualizado: 2026-11-01
+Actualizado: 2026-11-03
 
 ## Producto
 
@@ -32,9 +32,11 @@ El código actual en `main` usa `/`, `/alerts/:id`, `/active`, `/fleet` y `/hist
 
 ## Backend del MVP
 
-La migración `services/supabase/migrations/0002_drivers_and_extras.sql` agrega choferes, datos del incidente, tokens FCM, bandeja admin, ofertas a hospitales y RPC transaccionales. Debe revisarse y ejecutarse manualmente en SQL Editor después de la migración inicial. No hacer `supabase db push`.
+La migración 0002_drivers_and_extras.sql agrega choferes, ofertas, inbox admin y los RPC transaccionales iniciales. La migración 0003_hospital_workflows.sql la extiende con tipos configurables de ambulancia, código de unidad, chofer asignado al caso, turnos, reportes de falsa alarma revisables, detalles confirmados del incidente, RLS activa para las tablas base y rechazo de ofertas. Las dos se revisan y ejecutan manualmente, en ese orden, después de la migración inicial. El SQL services/supabase/storage/001_private_buckets.sql crea tres buckets privados y sus políticas. No hacer supabase db push.
 
-Funciones: `triage-ia`, `dispatch`, `accept-incident`, `update-incident-status`, `report-false-alarm`, `notify`, `create-staff`, `create-driver`. Contratos en `docs/api-contracts.md`.
+Funciones existentes: triage-ia, dispatch, accept-incident, update-incident-status, report-false-alarm, notify, create-staff, create-driver. Nuevas: reject-offer, review-false-alarm, get-incident, get-reporter-history, admin-overview, set-duty, manage-ambulance, manage-ambulance-type, update-driver, update-hospital-profile, update-incident-details y set-reporter-status. Contratos y orden de aplicación en docs/api-contracts.md.
+
+La sospecha de falsa alarma llega a admin y solo una confirmación humana suma al historial del testigo. No hay bloqueo automático al tercer reporte ni multa. El admin puede suspender la cuenta manualmente con motivo. El registro/login del testigo se añadirá después; el backend ya exige un perfil testigo activo para crear incidentes.
 
 ## URLs
 
@@ -45,5 +47,4 @@ Funciones: `triage-ia`, `dispatch`, `accept-incident`, `update-incident-status`,
 ## Pendientes fuera del MVP
 
 - App de choferes.
-- Tipos de ambulancia editables por hospital.
 - Verificación SMS/SEGIP.

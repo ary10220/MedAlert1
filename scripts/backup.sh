@@ -23,3 +23,12 @@ pg_dump --dbname="$SUPABASE_DB_URL" --format=custom --no-owner --no-acl --file="
 archive="$repo_root/backups/medalert-$stamp.tar.gz"
 tar -czf "$archive" -C "$tmp" medalert.dump
 echo "$archive"
+if [[ -n "${BACKUP_RCLONE_DEST:-}" ]]; then
+  : "${BACKUP_AGE_RECIPIENT:?Configura BACKUP_AGE_RECIPIENT para cifrar antes de subir a Drive}"
+  command -v age >/dev/null || { echo "Falta age para cifrar el backup" >&2; exit 1; }
+  command -v rclone >/dev/null || { echo "Falta rclone para subir el backup" >&2; exit 1; }
+  encrypted="$tmp/medalert-$stamp.tar.gz.age"
+  age -r "$BACKUP_AGE_RECIPIENT" -o "$encrypted" "$archive"
+  rclone copyto "$encrypted" "${BACKUP_RCLONE_DEST%/}/medalert-$stamp.tar.gz.age"
+  echo "Backup cifrado subido a $BACKUP_RCLONE_DEST"
+fi
