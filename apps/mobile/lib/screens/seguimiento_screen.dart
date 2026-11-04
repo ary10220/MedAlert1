@@ -229,7 +229,14 @@ class _EstadoCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             EtiquetaChip(
-              texto: estado.buscando ? 'En revisión' : estado.etiqueta,
+              texto: switch (estado) {
+                IncidentStatus.open ||
+                IncidentStatus.searching => 'En revisión',
+                IncidentStatus.assigned => 'Confirmado por el hospital',
+                IncidentStatus.onSite => 'En atención',
+                IncidentStatus.completed => 'Finalizado',
+                IncidentStatus.cancelled => 'Cerrado',
+              },
               color: colorDeEstado(estado, theme.colorScheme),
             ),
           ],

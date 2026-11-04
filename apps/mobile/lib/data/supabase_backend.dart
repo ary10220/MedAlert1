@@ -89,12 +89,13 @@ class SupabaseBackend extends Backend {
   }) async {
     final AuthResponse respuesta;
     try {
-      // El backend crea el perfil a partir de estos datos (ver docs/mobile.md).
+      // El backend crea el perfil de testigo con estos datos (ver
+      // docs/mobile.md). El rol no viaja: lo fija el backend.
       respuesta = await _db.auth.signUp(
         email: usuario.email,
         password: password,
         data: {
-          'rol': 'testigo',
+          'origen': 'app_testigo',
           'nombre': usuario.nombre,
           'ci': usuario.ci,
           'telefono': usuario.telefono,

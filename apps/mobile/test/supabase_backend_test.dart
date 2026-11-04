@@ -11,6 +11,9 @@
 //     --dart-define=TEST_STAFF_PASSWORD=<contraseña> \
 //     --dart-define=TEST_AMBULANCIA=<uuid> --dart-define=TEST_CHOFER=<uuid>
 //
+// Con TEST_REGISTRO=true también prueba el registro, que necesita el trigger
+// propuesto en docs/mobile.md.
+//
 // Con TEST_STAFF_* el hospital acepta el caso y se verifica que el testigo
 // lo vea en vivo.
 
@@ -21,6 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:medalert/data/backend.dart';
 import 'package:medalert/data/supabase_backend.dart';
 import 'package:medalert/models/incident.dart';
+import 'package:medalert/models/usuario.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const _url = String.fromEnvironment('TEST_SUPABASE_URL');
@@ -31,6 +35,7 @@ const _staffEmail = String.fromEnvironment('TEST_STAFF_EMAIL');
 const _staffPassword = String.fromEnvironment('TEST_STAFF_PASSWORD');
 const _ambulancia = String.fromEnvironment('TEST_AMBULANCIA');
 const _chofer = String.fromEnvironment('TEST_CHOFER');
+const _registro = bool.fromEnvironment('TEST_REGISTRO');
 
 // JPEG mínimo válido (1x1 px): el bucket solo acepta imágenes.
 const _jpeg = [
@@ -99,6 +104,28 @@ void main() {
         );
         expect(backend.sesionActiva, isFalse);
       });
+
+      test(
+        'el registro deja la sesión abierta como testigo',
+        skip: _registro ? false : 'requiere el trigger de docs/mobile.md',
+        () async {
+          final email =
+              'registro${DateTime.now().millisecondsSinceEpoch}'
+              '@demo.bo';
+          await backend.registrar(
+            usuario: Usuario(
+              nombre: 'Lorgio Choque',
+              ci: '7654321',
+              telefono: '71234567',
+              email: email,
+            ),
+            password: 'clave12345',
+          );
+          expect(backend.sesionActiva, isTrue);
+          expect(backend.usuario!.nombre, 'Lorgio Choque');
+          expect(backend.usuario!.email, email);
+        },
+      );
 
       test(
         'el testigo reporta y ve en vivo cuando el hospital acepta',
