@@ -40,6 +40,24 @@ export function requiredText(value: unknown, name: string, max = 200): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max) throw new HttpError(400, `Invalid ${name}`)
   return value.trim()
 }
+export function hospitalScope(user: Caller, requested: unknown): string {
+  if (user.rol === 'admin') return requiredUuid(requested, 'hospital_id')
+  if (!user.hospital_id) throw new HttpError(403, 'Hospital membership required')
+  if (requested !== undefined && requested !== user.hospital_id) {
+    throw new HttpError(403, 'Wrong hospital')
+  }
+  return user.hospital_id
+}
+export function requiredDate(value: unknown, name: string): string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new HttpError(400, `Invalid ${name}`)
+  }
+  const parsed = new Date(`${value}T00:00:00Z`)
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+    throw new HttpError(400, `Invalid ${name}`)
+  }
+  return value
+}
 export async function caller(req: Request, client: SupabaseClient, roles: Role[]): Promise<Caller> {
   const token = req.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1]
   if (!token) throw new HttpError(401, 'Authentication required')
@@ -86,4 +104,21 @@ export async function reporterId(client: SupabaseClient, incidentId: string): Pr
   const { data, error } = await client.from('incidents').select('reporter_id').eq('id', incidentId).single()
   if (error) throw error
   return data.reporter_id
+}
+export async function staffToNotify(client: SupabaseClient, hospitalIds: string[]): Promise<string[]> {
+  if (!hospitalIds.length) return []
+  const { data: shifts, error: shiftError } = await client.from('staff_shifts')
+    .select('staff_id,hospital_id').in('hospital_id', hospitalIds).is('ended_at', null)
+  if (shiftError) throw shiftError
+  const { data: staff, error } = await client.from('profiles')
+    .select('id,hospital_id').eq('rol', 'hospital_staff').eq('activo', true).in('hospital_id', hospitalIds)
+  if (error) throw error
+  const onDuty = new Set((shifts ?? []).map((shift: { staff_id: string }) => shift.staff_id))
+  const staffedHospitals = new Set((staff ?? [])
+    .filter((profile: { id: string }) => onDuty.has(profile.id))
+    .map((profile: { hospital_id: string }) => profile.hospital_id))
+  // Mientras un hospital no registre turnos, avisar a todo su personal activo.
+  return (staff ?? []).filter((profile: { id: string; hospital_id: string }) =>
+    !staffedHospitals.has(profile.hospital_id) || onDuty.has(profile.id))
+    .map((profile: { id: string }) => profile.id)
 }
