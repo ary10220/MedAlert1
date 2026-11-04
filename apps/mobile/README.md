@@ -1,17 +1,11 @@
-# medalert
+# MedAlert · app del testigo
 
-A new Flutter project.
+App Flutter con la que un testigo reporta una emergencia con foto y ubicación, y sigue en vivo la respuesta del hospital.
 
-## Getting Started
+```bash
+flutter run                                   # modo demo, sin backend
+flutter run --dart-define-from-file=env.json  # con Supabase (ver env.example.json)
+flutter test
+```
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Detalles, contrato con el backend y guion de la demo: [docs/mobile.md](../../docs/mobile.md).
