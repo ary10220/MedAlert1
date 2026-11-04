@@ -1,4 +1,4 @@
-import { body, caller, db, HttpError, notifyBestEffort, reply, requiredUuid, serve } from '../_shared/core.ts'
+import { body, caller, db, HttpError, notifyBestEffort, reply, requiredUuid, serve, staffToNotify } from '../_shared/core.ts'
 
 serve(async (req) => {
   const input = await body(req)
@@ -16,12 +16,11 @@ serve(async (req) => {
   if (!result || !Array.isArray(result.hospitals)) throw new HttpError(500, 'Invalid dispatch result')
   const ids: string[] = result.hospitals.map((hospital: { id: string }) => hospital.id)
   if (ids.length) {
-    const { data: staff, error: staffError } = await client.from('profiles')
-      .select('id').eq('rol', 'hospital_staff').eq('activo', true).in('hospital_id', ids)
-    if (staffError) throw staffError
-    await notifyBestEffort((staff ?? []).map((profile: { id: string }) => profile.id),
-      'Nueva alerta MedAlert', 'Hay un incidente para revisión y despacho.',
-      { incident_id: incidentId, type: 'incident_offer' })
+    try {
+      await notifyBestEffort(await staffToNotify(client, ids),
+        'Nueva alerta MedAlert', 'Hay un incidente para revisión y despacho.',
+        { incident_id: incidentId, type: 'incident_offer' })
+    } catch (notifyError) { console.error('dispatch notification failed', notifyError) }
   }
   return reply(result)
 })

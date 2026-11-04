@@ -1,69 +1,61 @@
-# Contratos Edge Functions — MedAlert MVP
+# Contratos del backend MedAlert
 
-Todas las rutas son `POST {SUPABASE_URL}/functions/v1/{nombre}` con `Content-Type: application/json`. Salvo `notify`, requieren `Authorization: Bearer <JWT de Supabase Auth>`. El `user_id` opcional de los contratos antiguos nunca sustituye al JWT: si se envía, debe coincidir con el usuario autenticado. Respuestas de error: `{ "error": "..." }`; 400 datos inválidos, 401 sin sesión, 403 rol incorrecto, 404 recurso ausente, 409 conflicto, 5xx dependencia o servidor.
+Todas las Edge Functions reciben POST {SUPABASE_URL}/functions/v1/{nombre}, JSON y Authorization: Bearer {JWT de Supabase Auth}. notify es interna y usa la service role key. Errores: {"error":"..."} y código HTTP 400, 401, 403, 404, 409 o 5xx. El backend verifica rol y hospital desde el JWT.
 
-| Función | Rol | Entrada | Salida exitosa |
-| --- | --- | --- | --- |
-| `triage-ia` | testigo propietario o admin | `{incident_id,photo_url}` | `{incident_id,priority,scene_description,tipo_accidente,cantidad_heridos_estimada,suggested_unit,confidence}` |
-| `dispatch` | testigo propietario o admin | `{incident_id}` | `{incident_id,status:"searching",radius_km,hospitals:[{id,nombre,distancia_km}]}` |
-| `accept-incident` | hospital_staff ofrecido | `{incident_id,ambulance_id,user_id?}` | `{incident_id,ambulance_id,status:"assigned"}` |
-| `update-incident-status` | staff asignado o admin para cancelar | `{incident_id,nuevo_estado,user_id?}` | `{incident_id,status}` |
-| `report-false-alarm` | staff asignado | `{incident_id,reason,user_id?}` | `{incident_id,status:"cancelled",admin_review:"pending"}` |
-| `notify` | solo servicio interno | `{user_ids:[uuid],title,body,data?:{clave:"valor"}}` | `{skipped:boolean,results:[{user_id,sent,failed}]}` |
-| `create-staff` | admin | `{hospital_id,email,nombre,ci,telefono}` | `{user_id,hospital_id,invite_sent:true}` (201) |
-| `create-driver` | admin | `{hospital_id,nombre,ci,licencia_numero?,licencia_categoria?,licencia_vence?,telefono?}` | `{driver_id,hospital_id}` (201) |
+## Testigo
 
-## Flujo y datos
+| Función | Entrada | Salida principal |
+| --- | --- | --- |
+| triage-ia | incident_id, photo_url | prioridad, descripción, tipo, heridos estimados, unidad sugerida, confianza |
+| dispatch | incident_id | status=searching, radio, hospitales ofrecidos |
+| get-incident | incident_id | detalle propio, hospital y mapa, foto firmada |
 
-1. La app sube la foto a Storage privado `incident-photos/{reporter_id}/{archivo}`, crea el incidente con `foto_url` igual a la ruta del objeto y llama `triage-ia`. La IA es apoyo visual, no diagnóstico; un humano revisa.
-2. `dispatch` pasa de `open` a `searching`, busca hospitales activos en radios 5→10→15→20 km, inserta `incident_offers` y avisa al staff. Si ninguno aparece, devuelve lista vacía. El hospital ve ofertas abiertas por RLS; se cierran al aceptar o cancelar el caso.
-3. `accept-incident` usa `accept_incident_atomic`: bloquea incidente y ambulancia, confirma hospital ofrecido, unidad disponible y chofer activo/licencia vigente, asigna ambos y escribe auditoría. Una segunda aceptación devuelve 409.
-4. `update-incident-status` permite `assigned → on_site → completed` al staff asignado y cancelación de un caso no terminal por staff asignado o admin. `report-false-alarm` cancela un caso asignado, escribe auditoría e inbox admin.
-5. `notify` es interno y requiere la service role key en `Authorization`. Sin Firebase configurado devuelve `skipped:true` sin fallar el flujo principal. FCM es best effort.
+El testigo crea el incidente con Supabase Auth y RLS y sube la foto al bucket privado incident-photos bajo {reporter_id}/{archivo}. foto_url guarda la ruta del objeto. La interfaz de registro/login del testigo se implementará después. La IA sugiere; el operador confirma.
 
-## Migración, secretos y despliegue
+## Hospital
 
-Revisar y ejecutar **manualmente** `services/supabase/migrations/0002_drivers_and_extras.sql` en SQL Editor después de la migración inicial. El CLI no la aplica automáticamente porque el repositorio conserva la migración 0002 en la carpeta de revisión manual. No ejecutar `supabase db push`.
+| Función | Entrada | Salida principal |
+| --- | --- | --- |
+| get-incident | incident_id | caso, foto firmada 5 minutos, mapa, reportante (nombre, teléfono, email), triaje |
+| reject-offer | incident_id, reason opcional | status=rejected, new_hospitals |
+| report-false-alarm | incident_id, reason | report_id, review=pending, incident_status, new_hospitals |
+| update-incident-details | incident_id, cantidad_heridos_confirmada, referencia | updated=true; null limpia un campo |
+| accept-incident | incident_id, ambulance_id, driver_id | status=assigned y IDs asignados |
+| update-incident-status | incident_id, nuevo_estado | nuevo status |
+| create-driver | hospital_id opcional, nombre, ci, licencia_numero, licencia_categoria, licencia_vence, licencia_documento_url, telefono | driver_id, hospital_id |
+| update-driver | driver_id, nombre, ci, licencia_numero, licencia_categoria, licencia_vence, licencia_documento_url, telefono, activo | updated=true |
+| manage-ambulance-type | hospital_id opcional, action=create/rename/activate/deactivate, type_id, nombre, base_tipo | type_id, hospital_id, action |
+| manage-ambulance | hospital_id opcional, action=create/update/activate/deactivate/maintenance_on/maintenance_off, ambulance_id, codigo, placa, type_id, driver_id | ambulance_id, action |
+| set-duty | staff_id opcional, on_duty | staff_id, on_duty |
+| update-hospital-profile | hospital_id opcional, nombre, direccion, telefono_despacho, logo_url, horario_atencion | updated_fields |
 
-El proyecto CLI está en `services/supabase/supabase`. Hay entradas de función en `supabase/functions/{nombre}/index.ts` que importan el código fuente de `services/supabase/functions/{nombre}/index.ts`. Tras aplicar la migración y configurar secretos, la tech lead puede desplegar desde `services/supabase` con `supabase functions deploy {nombre}`. URL resultante: `https://<project-ref>.supabase.co/functions/v1/{nombre}`. Las URLs reales aún no existen.
+Para hospital_staff, hospital_id se infiere del perfil; admin debe enviarlo al gestionar recursos. manage-ambulance exige codigo, placa y type_id al crear o actualizar. El tipo configurable conserva una categoría base basica, avanzada o uti. licencia_documento_url usa la ruta {hospital_id}/{archivo} en driver-licenses. logo_url usa la ruta {hospital_id}/{archivo} en hospital-logos.
 
-Secretos del runtime: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (proporcionados por Supabase), `GEMINI_API_KEY`, opcional `GEMINI_MODEL` (por defecto `gemini-3.6-flash`), y `FIREBASE_SERVICE_ACCOUNT_JSON` para FCM HTTP v1. `FCM_SERVER_KEY` no autentica HTTP v1. No colocar secretos en `apps/admin` ni en Git.
+Rechazar una oferta cierra solo la oferta del hospital. Si no quedan ofertas abiertas, se buscan otros hospitales hasta 20 km sin repetir los ya contactados. Marcar falsa alarma crea un reporte pendiente para admin. Desde una oferta abierta también rechaza esa oferta; desde un caso asignado cancela el despacho y libera la ambulancia. La marca no cuenta como fraude hasta que admin la confirme. Descartarla no reabre automáticamente un despacho cancelado.
 
-## Storage privado: pasos en Dashboard
+El despacho reserva incidente, ambulancia y chofer en una transacción. La licencia debe estar vigente y el chofer activo y libre. incidents.assigned_driver_id conserva el chofer del caso aunque cambie luego el titular de la unidad. Estados: assigned → on_site → completed, además de cancelación autorizada.
 
-1. Storage → New bucket → `incident-photos`; desactivar público; límite 5 MB; MIME permitidos `image/jpeg`, `image/png`, `image/webp`.
-2. Guardar `incidents.foto_url` como ruta de objeto `{user_id}/{uuid}.jpg` (sin prefijo de bucket). En SQL Editor, tras revisar la migración y crear el bucket, aplicar:
+## Admin
 
-```sql
-create policy "reportante sube foto propia" on storage.objects
-for insert to authenticated with check (
-  bucket_id = 'incident-photos'
-  and (storage.foldername(name))[1] = auth.uid()::text
-);
-create policy "reportante y operadores leen foto de incidente" on storage.objects
-for select to authenticated using (
-  bucket_id = 'incident-photos'
-  and (
-    (storage.foldername(name))[1] = auth.uid()::text
-    or exists (
-      select 1 from public.incidents i
-      where i.foto_url = name
-        and (
-          public.current_profile_role() = 'admin'
-          or i.assigned_hospital_id = public.current_hospital_id()
-        )
-    )
-  )
-);
-```
+| Función | Entrada | Salida principal |
+| --- | --- | --- |
+| admin-overview | objeto vacío | hospitales y disponibilidad, reportes pendientes, alertas sin oferta |
+| get-incident | incident_id | detalle con CI del reportante |
+| get-reporter-history | reporter_id | perfil, últimos 100 incidentes, sus reportes, conteo total confirmado |
+| review-false-alarm | report_id, decision=confirmed/dismissed, note | status revisado |
+| set-reporter-status | reporter_id, activo, reason | estado de la cuenta |
+| create-staff | hospital_id, email, nombre, ci, telefono | user_id, hospital_id, invite_sent |
 
-3. El staff solo podrá leer la foto una vez asignado su hospital. El backend usa service role para descargarla únicamente después de validar al dueño del incidente o al admin.
-4. No hacer el bucket público. Usar URLs firmadas de corta duración en los paneles.
+Admin abre la solicitud pendiente con get-incident y el historial con get-reporter-history. Solo las falsas alarmas confirmadas suman al conteo. No hay suspensión automática al tercer caso ni multa; set-reporter-status exige una decisión manual documentada. Las tablas de hospitales, flota, tipos, conductores, turnos, incidentes e historial se leen con Supabase Auth + RLS. Paginar listados extensos.
 
-## Fuentes técnicas
+## Migraciones, Storage y despliegue
 
-Backup manual: agregar `SUPABASE_DB_URL` (connection string PostgreSQL) a `services/supabase/.env.local` y ejecutar `bash scripts/backup.sh` desde la raíz del repo. El archivo comprimido queda en `backups/`. `SUPABASE_URL` y la service role key no bastan para `pg_dump`.
+Orden manual en SQL Editor: services/supabase/supabase/migrations/20261101000438_init_schema.sql, luego services/supabase/migrations/0002_drivers_and_extras.sql, después services/supabase/migrations/0003_hospital_workflows.sql y finalmente services/supabase/storage/001_private_buckets.sql. Verificar qué pasos ya se aplicaron antes de ejecutar. 0003 extiende 0002. No ejecutar supabase db push ni desplegar funciones antes de la revisión de la tech lead.
 
-- [Modelos Gemini y retiros](https://ai.google.dev/gemini-api/docs/deprecations)
-- [FCM HTTP v1](https://firebase.google.com/docs/cloud-messaging/send/v1-api)
-- [Configuración Edge Functions](https://supabase.com/docs/guides/functions/function-configuration)
+El proyecto CLI está en services/supabase/supabase. Sus entradas supabase/functions/{nombre}/index.ts importan el código de services/supabase/functions/{nombre}/index.ts. Tras aplicar SQL y secretos, desplegar las funciones nuevas y modificadas. Hasta entonces las URLs reales no existen. Secretos: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY, GEMINI_MODEL opcional y FIREBASE_SERVICE_ACCOUNT_JSON para FCM HTTP v1. No poner secretos en Git.
+
+Los buckets incident-photos, hospital-logos y driver-licenses son privados. El SQL de Storage define tamaño, MIME y permisos por rol/hospital. Las fotos se entregan con URL firmada de corta duración. Realtime publica incidentes, ofertas y reportes de falsa alarma bajo RLS. Si falla el push, la transacción sigue guardada; los paneles deben leer Realtime o refrescar.
+
+Backup manual: SUPABASE_DB_URL en services/supabase/.env.local y bash scripts/backup.sh desde la raíz. pg_dump crea el archivo en backups/. La URL REST y la service role key no sustituyen la connection string PostgreSQL.
+
+Para copia opcional en Drive, configurar BACKUP_RCLONE_DEST con un remoto rclone y BACKUP_AGE_RECIPIENT con la clave pública age. El script cifra el archivo antes de subirlo. Se requieren age y rclone; la clave privada de descifrado se guarda fuera del repositorio. El archivo local en backups/ sigue siendo texto descifrable y debe protegerse.
