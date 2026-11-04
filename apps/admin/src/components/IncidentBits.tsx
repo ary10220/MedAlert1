@@ -24,10 +24,10 @@ export function PriorityBadge({ prioridad, size = 'lg' }: { prioridad: Prioridad
 }
 
 /** Foto del incidente con respaldo si no carga. */
-export function IncidentPhoto({ src, alt, className = '' }: { src: string; alt: string; className?: string }) {
+export function IncidentPhoto({ src, alt, className = '' }: { src: string | null | undefined; alt: string; className?: string }) {
   const [failed, setFailed] = useState(false)
-  if (failed) {
-    return <div className={`flex items-center justify-center bg-night-600 text-xs text-white/40 ${className}`}>Foto no disponible</div>
+  if (failed || !src) {
+    return <div className={`flex items-center justify-center bg-night-600 text-xs text-white/40 ${className}`}>{src ? 'Foto no disponible' : 'Sin foto'}</div>
   }
   return <img src={src} alt={alt} onError={() => setFailed(true)} loading="lazy" className={`bg-night-600 object-cover ${className}`} />
 }

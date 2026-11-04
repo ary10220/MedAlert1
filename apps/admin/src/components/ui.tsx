@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, type ReactNode, type InputHTMLAttributes, type SelectHTMLAttributes, type ButtonHTMLAttributes } from 'react'
+import { useEffect, useId, useRef, type ReactNode, type InputHTMLAttributes, type SelectHTMLAttributes, type ButtonHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import type { Tone } from '../lib/format'
+import Icon, { type IconName } from './Icon'
 
 const TONE: Record<Tone, string> = {
   pulse: 'bg-pulse/15 text-red-200 ring-pulse/40',
@@ -7,7 +8,7 @@ const TONE: Record<Tone, string> = {
   mint: 'bg-mint/15 text-emerald-100 ring-mint/40',
   sky: 'bg-sky-400/15 text-sky-100 ring-sky-400/40',
   neutral: 'bg-white/10 text-white/80 ring-white/20',
-  muted: 'bg-white/5 text-white/50 ring-white/10',
+  muted: 'bg-white/5 text-white/60 ring-white/15',
 }
 const DOT: Record<Tone, string> = {
   pulse: 'bg-pulse', amber: 'bg-amber', mint: 'bg-mint', sky: 'bg-sky-400', neutral: 'bg-white/60', muted: 'bg-white/30',
@@ -27,7 +28,7 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
     <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 className="font-display text-3xl font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-white/50">{subtitle}</p>}
+        {subtitle && <p className="mt-1 text-sm text-white/60">{subtitle}</p>}
       </div>
       {action}
     </header>
@@ -65,21 +66,24 @@ type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 const BTN: Record<ButtonVariant, string> = {
   primary: 'bg-pulse text-white hover:bg-pulse-dark',
   secondary: 'bg-white/10 text-white hover:bg-white/15',
-  ghost: 'text-white/60 hover:bg-white/5 hover:text-white',
+  ghost: 'text-white/70 hover:bg-white/5 hover:text-white',
   danger: 'bg-transparent text-red-300 ring-1 ring-inset ring-pulse/50 hover:bg-pulse/10',
 }
 
-export function Button({ variant = 'primary', className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+type ButtonSize = 'md' | 'lg'
+const SIZE: Record<ButtonSize, string> = { md: 'px-4 py-2 text-sm', lg: 'px-6 py-3.5 text-base' }
+
+export function Button({ variant = 'primary', size = 'md', className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: ButtonSize }) {
   return (
     <button
       type="button"
       {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pulse disabled:cursor-not-allowed disabled:opacity-50 ${BTN[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors ${SIZE[size]} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pulse disabled:cursor-not-allowed disabled:opacity-50 ${BTN[variant]} ${className}`}
     />
   )
 }
 
-const FIELD = 'w-full rounded-lg border border-white/10 bg-night-800 px-3 py-2 text-sm text-white placeholder-white/25 transition-colors focus:border-pulse/60 focus:outline-none'
+const FIELD = 'w-full rounded-lg border border-white/15 bg-night-800 px-3 py-2.5 text-sm text-white placeholder-white/30 transition-colors focus:border-pulse/60 focus:outline-none'
 
 export function TextField({ label, error, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string }) {
   const id = useId()
@@ -107,8 +111,8 @@ export function FilterSelect({ label, children, ...props }: SelectHTMLAttributes
   const id = useId()
   return (
     <div className="flex items-center gap-2">
-      <label htmlFor={id} className="text-xs text-white/50">{label}</label>
-      <select id={id} {...props} className="rounded-lg border border-white/10 bg-night-700 px-2.5 py-1.5 text-sm text-white focus:border-pulse/60 focus:outline-none">
+      <label htmlFor={id} className="text-xs font-medium text-white/60">{label}</label>
+      <select id={id} {...props} className="rounded-lg border border-white/15 bg-night-700 px-2.5 py-2 text-sm text-white focus:border-pulse/60 focus:outline-none">
         {children}
       </select>
     </div>
@@ -160,8 +164,25 @@ export function Modal({ open, title, onClose, children }: { open: boolean; title
   )
 }
 
-export function EmptyState({ children }: { children: ReactNode }) {
-  return <div className="px-5 py-10 text-center text-sm text-white/40">{children}</div>
+/** Estado vacío: ícono + título + explicación + acción opcional, para que el operador sepa qué hacer. */
+export function EmptyState({ children, icon, title, action }: { children?: ReactNode; icon?: IconName; title?: string; action?: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
+      {icon && (
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-white/50">
+          <Icon name={icon} className="h-6 w-6" />
+        </span>
+      )}
+      {title && <p className="font-semibold text-white/85">{title}</p>}
+      {children && <div className="max-w-md text-sm text-white/55">{children}</div>}
+      {action}
+    </div>
+  )
+}
+
+/** Bloques grises animados con la forma del contenido que va a llegar. */
+export function Skeleton({ className = '' }: { className?: string }) {
+  return <div className={`animate-pulse rounded-md bg-white/[0.07] ${className}`} aria-hidden />
 }
 
 /** Tabla base con encabezados consistentes. */
@@ -170,12 +191,46 @@ export function Table({ head, children }: { head: ReactNode[]; children: ReactNo
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-white/45">
+          <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-white/55">
             {head.map((h, i) => <th key={i} scope="col" className="whitespace-nowrap px-5 py-3 font-medium">{h}</th>)}
           </tr>
         </thead>
         <tbody className="divide-y divide-white/5">{children}</tbody>
       </table>
+    </div>
+  )
+}
+
+export function Spinner({ label = 'Cargando…' }: { label?: string }) {
+  return (
+    <div className="flex items-center justify-center gap-3 px-5 py-10 text-sm text-white/60" role="status">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-pulse" aria-hidden />
+      {label}
+    </div>
+  )
+}
+
+/** Error de carga con reintento. */
+export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-pulse/40 bg-pulse/10 px-4 py-3 text-sm text-red-100">
+      <span>{message}</span>
+      {onRetry && (
+        <button type="button" onClick={onRetry} className="font-semibold underline underline-offset-2">
+          Reintentar
+        </button>
+      )}
+    </div>
+  )
+}
+
+export function TextArea({ label, error, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; error?: string }) {
+  const id = useId()
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/60">{label}</label>
+      <textarea id={id} aria-invalid={!!error} {...props} className={`${FIELD} min-h-[88px] ${error ? 'border-pulse/70' : ''}`} />
+      {error && <p className="text-xs text-red-300">{error}</p>}
     </div>
   )
 }
