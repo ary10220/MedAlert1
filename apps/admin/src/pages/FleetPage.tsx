@@ -23,7 +23,7 @@ export default function FleetPage() {
   return (
     <>
       <PageHeader title="Flota" subtitle={hospital.nombre} />
-      <div role="tablist" aria-label="Secciones de flota" className="mb-5 inline-flex rounded-lg border border-white/10 bg-night-700 p-0.5">
+      <div role="tablist" aria-label="Secciones de flota" className="mb-5 inline-flex rounded-lg border border-line bg-surface p-0.5">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -31,7 +31,7 @@ export default function FleetPage() {
             role="tab"
             aria-selected={tab === t.id}
             onClick={() => setParams(t.id === 'ambulancias' ? {} : { tab: t.id }, { replace: true })}
-            className={`rounded-md px-4 py-1.5 text-sm font-semibold transition-colors ${tab === t.id ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'}`}
+            className={`rounded-md px-4 py-1.5 text-sm font-semibold transition-colors ${tab === t.id ? 'bg-wash text-ink' : 'text-muted hover:text-ink'}`}
           >
             {t.label}
           </button>

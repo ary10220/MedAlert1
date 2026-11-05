@@ -59,25 +59,25 @@ export default function LoginPage() {
   const shownError = error ?? blocked ?? supabaseConfigError
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-night px-4">
+    <div className="flex min-h-screen items-center justify-center bg-wash px-4">
       <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center font-display text-4xl font-semibold tracking-tight">
+        <h1 className="mb-2 text-center font-display text-4xl font-semibold tracking-tight text-navy">
           Med<span className="text-pulse">Alert</span>
         </h1>
-        <p className="mb-8 text-center text-sm text-white/45">Panel de despacho hospitalario</p>
+        <p className="mb-8 text-center text-sm text-muted">Panel de despacho hospitalario</p>
 
-        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5 rounded-xl border border-white/10 bg-white/5 p-8">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5 rounded-xl border border-line bg-surface p-8 shadow-card">
           <TextField label="Email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="usuario@hospital.bo" required />
           <TextField label="Contraseña" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
-          {shownError && <p role="alert" className="rounded-lg bg-pulse/10 px-3 py-2 text-sm text-red-200">{shownError}</p>}
-          {info && <p role="status" className="rounded-lg bg-mint/10 px-3 py-2 text-sm text-emerald-100">{info}</p>}
+          {shownError && <p role="alert" className="rounded-lg border border-pulse/40 bg-rose px-3 py-2 text-sm text-pulse-dark">{shownError}</p>}
+          {info && <p role="status" className="rounded-lg border border-mint/40 bg-mintBg px-3 py-2 text-sm text-mint">{info}</p>}
           <Button type="submit" disabled={loading || !!supabaseConfigError || status === 'loading'} className="mt-1 py-2.5">
             {loading ? 'Ingresando…' : 'Ingresar'}
           </Button>
-          <button type="button" onClick={forgot} className="text-center text-xs font-semibold text-white/55 hover:text-white">
+          <button type="button" onClick={forgot} className="text-center text-xs font-semibold text-muted hover:text-ink">
             ¿Olvidaste tu contraseña?
           </button>
-          <p className="text-center text-xs text-white/35">Sin registro: las cuentas del personal las crea el administrador de MedAlert.</p>
+          <p className="text-center text-xs text-muted">Sin registro: las cuentas del personal las crea el administrador de MedAlert.</p>
         </form>
       </div>
     </div>

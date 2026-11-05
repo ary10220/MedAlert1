@@ -37,7 +37,7 @@ export function RejectOfferModal({ incidentId, open, onClose, onDone }: { incide
   return (
     <Modal open={open} title="Rechazar alerta" onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <p className="text-sm text-white/60">La alerta se ofrecerá a otros hospitales cercanos. Tu hospital ya no la verá.</p>
+        <p className="text-sm text-muted">La alerta se ofrecerá a otros hospitales cercanos. Tu hospital ya no la verá.</p>
         <SelectField label="Motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)}>
           {MOTIVOS_RECHAZO.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
         </SelectField>
@@ -80,7 +80,7 @@ export function FalseAlarmModal({ incidentId, assigned, open, onClose, onDone }:
   return (
     <Modal open={open} title="Reportar posible falsa alarma" onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <p className="text-sm text-white/60">
+        <p className="text-sm text-muted">
           {assigned
             ? 'Se cancelará el despacho y la ambulancia quedará disponible.'
             : 'Se rechazará la alerta para tu hospital.'}{' '}

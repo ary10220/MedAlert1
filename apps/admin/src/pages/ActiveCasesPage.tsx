@@ -87,11 +87,11 @@ export default function ActiveCasesPage() {
             const highlighted = hash === `#${c.id}`
             const next = NEXT[c.estado]
             return (
-              <li key={c.id} id={c.id} className={`overflow-hidden rounded-xl border bg-night-700 ${highlighted ? 'border-pulse/60' : 'border-white/10'}`}>
+              <li key={c.id} id={c.id} className={`overflow-hidden rounded-xl border bg-surface shadow-card ${highlighted ? 'border-pulse/60' : 'border-line'}`}>
                 {c.lat != null && c.lon != null ? (
                   <IncidentMap incident={[c.lat, c.lon]} hospital={[hospital.lat, hospital.lon]} compact className="h-40 rounded-none" />
                 ) : (
-                  <div className="flex h-16 items-center justify-center bg-night-600 text-xs text-white/40">Sin ubicación GPS</div>
+                  <div className="flex h-16 items-center justify-center bg-line text-xs text-muted">Sin ubicación GPS</div>
                 )}
                 <div className="flex flex-col gap-4 p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -100,25 +100,43 @@ export default function ActiveCasesPage() {
                         <PriorityBadge prioridad={c.prioridad} size="sm" />
                         <Badge tone={ESTADO_INCIDENTE[c.estado].tone}>{ESTADO_INCIDENTE[c.estado].label}</Badge>
                       </div>
-                      <Link to={`/alerts/${c.id}`} className="mt-2 block truncate font-semibold hover:underline">
+                      <Link to={`/alerts/${c.id}`} className="mt-2 block truncate font-semibold text-ink hover:text-pulse hover:underline">
                         {c.referencia || c.tipo_accidente || 'Ubicación por GPS'}
                       </Link>
-                      <div className="text-xs text-white/50">
+                      <div className="text-xs text-muted">
                         {amb ? `${amb.codigo ?? amb.placa} · ${amb.tipo ? TIPO_AMBULANCIA[amb.tipo] : ''}` : 'Unidad'} · {chofer?.nombre ?? 'chofer'}
-                        {chofer?.telefono && <> · <a href={`tel:${chofer.telefono}`} className="underline">{chofer.telefono}</a></>}
+                        {chofer?.telefono && <> · <a href={`tel:${chofer.telefono}`} className="text-pulse underline">{chofer.telefono}</a></>}
+                      </div>
+                      {/* Bits del incidente: heridos y testigo, visibles sin abrir el detalle. */}
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        {(() => {
+                          const n = c.cantidad_heridos_confirmada ?? c.ia_output?.cantidad_heridos_estimada ?? c.cantidad_heridos
+                          if (n == null) return null
+                          return (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-rose px-2 py-1 font-semibold text-pulse-dark ring-1 ring-inset ring-pulse/20">
+                              <Icon name="heart" className="h-3.5 w-3.5" /> {n} {n === 1 ? 'herido' : 'heridos'}{c.cantidad_heridos_confirmada != null ? ' · confirmado' : ' · estimado'}
+                            </span>
+                          )
+                        })()}
+                        <span className="inline-flex items-center gap-1 rounded-md bg-wash px-2 py-1 font-medium text-muted ring-1 ring-inset ring-line">
+                          <Icon name="user" className="h-3.5 w-3.5" /> {c.reporter_id ? 'Testigo registrado' : 'Reporte anónimo'}
+                        </span>
+                        <Link to={`/alerts/${c.id}`} className="inline-flex items-center gap-1 rounded-md bg-navy px-2 py-1 font-semibold text-white hover:bg-navy-2">
+                          Ver detalles <Icon name="chevron" className="h-3.5 w-3.5" />
+                        </Link>
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className={`font-display text-2xl font-semibold tabular-nums ${c.estado === 'assigned' && transcurrido >= 15 ? 'text-amber' : ''}`}>{fmtDuration(transcurrido)}</div>
-                      <div className="text-xs text-white/55">desde despacho · {c.assigned_at ? fmtTime(c.assigned_at) : '—'}</div>
+                      <div className={`font-display text-2xl font-semibold tabular-nums ${c.estado === 'assigned' && transcurrido >= 15 ? 'text-amber' : 'text-ink'}`}>{fmtDuration(transcurrido)}</div>
+                      <div className="text-xs text-muted">desde despacho · {c.assigned_at ? fmtTime(c.assigned_at) : '—'}</div>
                     </div>
                   </div>
 
                   <ol className="grid grid-cols-3 gap-1" aria-label="Progreso del caso">
                     {PASOS.map((p, i) => (
                       <li key={p} className="flex flex-col gap-1.5">
-                        <span className={`h-1.5 rounded-full ${i <= step ? 'bg-mint' : 'bg-white/10'}`} aria-hidden />
-                        <span className={`text-xs ${i <= step ? 'font-semibold text-white' : 'text-white/50'}`}>
+                        <span className={`h-1.5 rounded-full ${i <= step ? 'bg-mint' : 'bg-wash'}`} aria-hidden />
+                        <span className={`text-xs ${i <= step ? 'font-semibold text-ink' : 'text-muted'}`}>
                           {p}
                           <span className="sr-only">{i <= step ? ' (hecho)' : ' (pendiente)'}</span>
                         </span>

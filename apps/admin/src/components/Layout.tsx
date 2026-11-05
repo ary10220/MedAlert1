@@ -24,15 +24,15 @@ function StatusBar({ pendientes, activos, libres, total }: { pendientes: number;
   const sound = useAlertSound()
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
-  const chip = 'flex items-center gap-2 rounded-lg border border-white/10 bg-night-700 px-3 py-1.5 text-sm whitespace-nowrap'
+  const chip = 'flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm whitespace-nowrap'
 
   return (
-    <div className="sticky top-0 z-[800] border-b border-white/10 bg-night-800/95 backdrop-blur">
+    <div className="sticky top-0 z-[800] border-b border-line bg-wash/95 backdrop-blur">
       {/* Cabecera compacta en celular (en escritorio el hospital está en el menú lateral) */}
       <div className="flex items-center gap-3 px-4 pt-3 md:hidden">
         <HospitalLogo nombre={hospital.nombre} logoPath={hospital.logo_url} size={32} />
         <span className="min-w-0 flex-1 truncate text-sm font-bold">{hospital.nombre}</span>
-        <button type="button" onClick={() => sound.setEnabled(!sound.enabled)} aria-label={sound.enabled ? 'Silenciar alertas' : 'Activar sonido de alertas'} className="rounded-md p-2 text-white/70 hover:bg-white/10">
+        <button type="button" onClick={() => sound.setEnabled(!sound.enabled)} aria-label={sound.enabled ? 'Silenciar alertas' : 'Activar sonido de alertas'} className="rounded-md p-2 text-muted hover:bg-wash">
           <Icon name={sound.enabled ? 'volume' : 'mute'} />
         </button>
         <button
@@ -42,26 +42,26 @@ function StatusBar({ pendientes, activos, libres, total }: { pendientes: number;
             navigate('/login', { replace: true })
           }}
           aria-label="Cerrar sesión"
-          className="rounded-md p-2 text-white/70 hover:bg-white/10"
+          className="rounded-md p-2 text-muted hover:bg-wash"
         >
           <Icon name="logout" />
         </button>
       </div>
       <div className="mx-auto flex max-w-6xl items-center gap-2 overflow-x-auto px-4 py-3 md:px-8">
-        <Link to="/" className={`${chip} ${pendientes > 0 ? 'border-pulse/60 bg-pulse/15' : ''}`}>
-          <Icon name="bell" className={`h-4 w-4 ${pendientes > 0 ? 'text-red-200' : 'text-white/55'}`} />
+        <Link to="/" className={`${chip} ${pendientes > 0 ? 'border-pulse/60 bg-rose' : ''}`}>
+          <Icon name="bell" className={`h-4 w-4 ${pendientes > 0 ? 'text-pulse' : 'text-muted'}`} />
           <strong className="tabular-nums">{pendientes}</strong>
-          <span className="text-white/70">{pendientes === 1 ? 'alerta' : 'alertas'}</span>
+          <span className="text-muted">{pendientes === 1 ? 'alerta' : 'alertas'}</span>
         </Link>
         <Link to="/active" className={chip}>
-          <Icon name="pulse" className="h-4 w-4 text-white/55" />
+          <Icon name="pulse" className="h-4 w-4 text-muted" />
           <strong className="tabular-nums">{activos}</strong>
-          <span className="text-white/70">en curso</span>
+          <span className="text-muted">en curso</span>
         </Link>
-        <Link to="/fleet" className={`${chip} ${libres === 0 ? 'border-amber/60 bg-amber/10' : ''}`}>
-          <Icon name="truck" className="h-4 w-4 text-white/55" />
-          <span className="tabular-nums"><strong>{libres ?? '–'}</strong><span className="text-white/70">/{total ?? '–'}</span></span>
-          <span className="text-white/70">libres</span>
+        <Link to="/fleet" className={`${chip} ${libres === 0 ? 'border-amber/60 bg-amberBg' : ''}`}>
+          <Icon name="truck" className="h-4 w-4 text-muted" />
+          <span className="tabular-nums"><strong>{libres ?? '–'}</strong><span className="text-muted">/{total ?? '–'}</span></span>
+          <span className="text-muted">libres</span>
         </Link>
         <span className={`${chip} ml-auto border-transparent bg-transparent`} title={live === 'offline' ? 'Sin conexión en tiempo real: los datos se refrescan cada 15 s' : undefined}>
           {live === 'offline' ? (
@@ -72,7 +72,7 @@ function StatusBar({ pendientes, activos, libres, total }: { pendientes: number;
               <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${live === 'live' ? 'bg-mint' : 'bg-amber'}`} />
             </span>
           )}
-          <span className="text-xs text-white/65">{live === 'live' ? 'En vivo' : live === 'connecting' ? 'Conectando…' : 'Refresco cada 15 s'}</span>
+          <span className="text-xs text-muted">{live === 'live' ? 'En vivo' : live === 'connecting' ? 'Conectando…' : 'Refresco cada 15 s'}</span>
         </span>
       </div>
     </div>
@@ -118,7 +118,7 @@ export default function Layout() {
   }, [pendientes])
 
   return (
-    <div className="flex min-h-screen bg-night-800">
+    <div className="flex min-h-screen bg-wash">
       <Sidebar pendientes={pendientes} activos={activos} />
       <div className="flex min-w-0 flex-1 flex-col">
         <StatusBar pendientes={pendientes} activos={activos} libres={libres} total={flotaActiva?.length} />

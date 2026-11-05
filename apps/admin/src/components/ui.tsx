@@ -3,15 +3,15 @@ import type { Tone } from '../lib/format'
 import Icon, { type IconName } from './Icon'
 
 const TONE: Record<Tone, string> = {
-  pulse: 'bg-pulse/15 text-red-200 ring-pulse/40',
-  amber: 'bg-amber/15 text-amber-100 ring-amber/40',
-  mint: 'bg-mint/15 text-emerald-100 ring-mint/40',
-  sky: 'bg-sky-400/15 text-sky-100 ring-sky-400/40',
-  neutral: 'bg-white/10 text-white/80 ring-white/20',
-  muted: 'bg-white/5 text-white/60 ring-white/15',
+  pulse: 'bg-rose text-pulse-dark ring-pulse/30',
+  amber: 'bg-amberBg text-amber ring-amber/30',
+  mint: 'bg-mintBg text-mint ring-mint/30',
+  sky: 'bg-wash text-navy-2 ring-navy-2/30',
+  neutral: 'bg-wash text-ink ring-line',
+  muted: 'bg-wash text-muted ring-line',
 }
 const DOT: Record<Tone, string> = {
-  pulse: 'bg-pulse', amber: 'bg-amber', mint: 'bg-mint', sky: 'bg-sky-400', neutral: 'bg-white/60', muted: 'bg-white/30',
+  pulse: 'bg-pulse', amber: 'bg-amber', mint: 'bg-mint', sky: 'bg-navy-2', neutral: 'bg-muted', muted: 'bg-muted/60',
 }
 
 export function Badge({ tone, children }: { tone: Tone; children: ReactNode }) {
@@ -27,8 +27,8 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
   return (
     <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-white/60">{subtitle}</p>}
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-navy">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
       </div>
       {action}
     </header>
@@ -37,10 +37,10 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
 
 export function Card({ title, action, children, className = '' }: { title?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`min-w-0 rounded-xl border border-white/10 bg-night-700 ${className}`}>
+    <section className={`min-w-0 rounded-xl border border-line bg-surface shadow-card ${className}`}>
       {title && (
-        <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-3">
-          <h2 className="text-sm font-semibold text-white/90">{title}</h2>
+        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
+          <h2 className="text-sm font-semibold text-ink">{title}</h2>
           {action}
         </div>
       )}
@@ -51,23 +51,23 @@ export function Card({ title, action, children, className = '' }: { title?: stri
 
 export function StatTile({ label, value, hint, accent }: { label: string; value: ReactNode; hint?: ReactNode; accent?: Tone }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-night-700 px-5 py-4">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-white/50">
+    <div className="rounded-xl border border-line bg-surface px-5 py-4">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted">
         {accent && <span className={`h-2 w-2 rounded-full ${DOT[accent]}`} aria-hidden />}
         {label}
       </div>
       <div className="mt-2 font-display text-3xl font-semibold tabular-nums">{value}</div>
-      {hint && <div className="mt-1 text-xs text-white/45">{hint}</div>}
+      {hint && <div className="mt-1 text-xs text-muted">{hint}</div>}
     </div>
   )
 }
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 const BTN: Record<ButtonVariant, string> = {
-  primary: 'bg-pulse text-white hover:bg-pulse-dark',
-  secondary: 'bg-white/10 text-white hover:bg-white/15',
-  ghost: 'text-white/70 hover:bg-white/5 hover:text-white',
-  danger: 'bg-transparent text-red-300 ring-1 ring-inset ring-pulse/50 hover:bg-pulse/10',
+  primary: 'bg-pulse text-white shadow-sm hover:bg-pulse-dark',
+  secondary: 'bg-surface text-ink ring-1 ring-inset ring-line hover:bg-wash',
+  ghost: 'text-muted hover:bg-wash hover:text-ink',
+  danger: 'bg-surface text-pulse-dark ring-1 ring-inset ring-pulse/40 hover:bg-rose',
 }
 
 type ButtonSize = 'md' | 'lg'
@@ -83,15 +83,15 @@ export function Button({ variant = 'primary', size = 'md', className = '', ...pr
   )
 }
 
-const FIELD = 'w-full rounded-lg border border-white/15 bg-night-800 px-3 py-2.5 text-sm text-white placeholder-white/30 transition-colors focus:border-pulse/60 focus:outline-none'
+const FIELD = 'w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink placeholder-muted/60 transition-colors focus:border-pulse/60 focus:outline-none focus:ring-2 focus:ring-pulse/15'
 
 export function TextField({ label, error, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string }) {
   const id = useId()
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/60">{label}</label>
+      <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-muted">{label}</label>
       <input id={id} aria-invalid={!!error} aria-describedby={error ? `${id}-err` : undefined} {...props} className={`${FIELD} ${error ? 'border-pulse/70' : ''}`} />
-      {error && <p id={`${id}-err`} className="text-xs text-red-300">{error}</p>}
+      {error && <p id={`${id}-err`} className="text-xs text-pulse">{error}</p>}
     </div>
   )
 }
@@ -100,7 +100,7 @@ export function SelectField({ label, children, ...props }: SelectHTMLAttributes<
   const id = useId()
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/60">{label}</label>
+      <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-muted">{label}</label>
       <select id={id} {...props} className={FIELD}>{children}</select>
     </div>
   )
@@ -111,8 +111,8 @@ export function FilterSelect({ label, children, ...props }: SelectHTMLAttributes
   const id = useId()
   return (
     <div className="flex items-center gap-2">
-      <label htmlFor={id} className="text-xs font-medium text-white/60">{label}</label>
-      <select id={id} {...props} className="rounded-lg border border-white/15 bg-night-700 px-2.5 py-2 text-sm text-white focus:border-pulse/60 focus:outline-none">
+      <label htmlFor={id} className="text-xs font-medium text-muted">{label}</label>
+      <select id={id} {...props} className="rounded-lg border border-line bg-surface px-2.5 py-2 text-sm text-ink focus:border-pulse/60 focus:outline-none">
         {children}
       </select>
     </div>
@@ -128,7 +128,7 @@ export function Toggle({ checked, onChange, label, disabled = false }: { checked
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pulse disabled:cursor-not-allowed disabled:opacity-40 ${checked ? 'bg-mint' : 'bg-white/15'}`}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pulse disabled:cursor-not-allowed disabled:opacity-40 ${checked ? 'bg-mint' : 'bg-line'}`}
     >
       <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`} />
     </button>
@@ -149,13 +149,13 @@ export function Modal({ open, title, onClose, children }: { open: boolean; title
       ref={ref}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-white/10 bg-night-700 p-0 text-white backdrop:bg-black/60"
+      className="w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-line bg-surface p-0 text-ink backdrop:bg-black/60"
     >
       {open && (
         <div className="p-6">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="font-display text-xl font-semibold">{title}</h2>
-            <button type="button" onClick={onClose} aria-label="Cerrar" className="rounded-md p-1 text-white/50 hover:bg-white/10 hover:text-white">✕</button>
+            <button type="button" onClick={onClose} aria-label="Cerrar" className="rounded-md p-1 text-muted hover:bg-wash hover:text-ink">✕</button>
           </div>
           {children}
         </div>
@@ -169,12 +169,12 @@ export function EmptyState({ children, icon, title, action }: { children?: React
   return (
     <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
       {icon && (
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-white/50">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-wash text-muted">
           <Icon name={icon} className="h-6 w-6" />
         </span>
       )}
-      {title && <p className="font-semibold text-white/85">{title}</p>}
-      {children && <div className="max-w-md text-sm text-white/55">{children}</div>}
+      {title && <p className="font-semibold text-ink">{title}</p>}
+      {children && <div className="max-w-md text-sm text-muted">{children}</div>}
       {action}
     </div>
   )
@@ -182,7 +182,7 @@ export function EmptyState({ children, icon, title, action }: { children?: React
 
 /** Bloques grises animados con la forma del contenido que va a llegar. */
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse rounded-md bg-white/[0.07] ${className}`} aria-hidden />
+  return <div className={`animate-pulse rounded-md bg-line ${className}`} aria-hidden />
 }
 
 /** Tabla base con encabezados consistentes. */
@@ -191,11 +191,11 @@ export function Table({ head, children }: { head: ReactNode[]; children: ReactNo
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-white/55">
+          <tr className="border-b border-line text-xs uppercase tracking-wider text-muted">
             {head.map((h, i) => <th key={i} scope="col" className="whitespace-nowrap px-5 py-3 font-medium">{h}</th>)}
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/5">{children}</tbody>
+        <tbody className="divide-y divide-line/60">{children}</tbody>
       </table>
     </div>
   )
@@ -203,8 +203,8 @@ export function Table({ head, children }: { head: ReactNode[]; children: ReactNo
 
 export function Spinner({ label = 'Cargando…' }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-3 px-5 py-10 text-sm text-white/60" role="status">
-      <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-pulse" aria-hidden />
+    <div className="flex items-center justify-center gap-3 px-5 py-10 text-sm text-muted" role="status">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-line border-t-pulse" aria-hidden />
       {label}
     </div>
   )
@@ -213,7 +213,7 @@ export function Spinner({ label = 'Cargando…' }: { label?: string }) {
 /** Error de carga con reintento. */
 export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-pulse/40 bg-pulse/10 px-4 py-3 text-sm text-red-100">
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-pulse/40 bg-rose px-4 py-3 text-sm text-pulse-dark">
       <span>{message}</span>
       {onRetry && (
         <button type="button" onClick={onRetry} className="font-semibold underline underline-offset-2">
@@ -228,9 +228,9 @@ export function TextArea({ label, error, ...props }: TextareaHTMLAttributes<HTML
   const id = useId()
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-white/60">{label}</label>
+      <label htmlFor={id} className="text-xs font-medium uppercase tracking-wider text-muted">{label}</label>
       <textarea id={id} aria-invalid={!!error} {...props} className={`${FIELD} min-h-[88px] ${error ? 'border-pulse/70' : ''}`} />
-      {error && <p className="text-xs text-red-300">{error}</p>}
+      {error && <p className="text-xs text-pulse">{error}</p>}
     </div>
   )
 }

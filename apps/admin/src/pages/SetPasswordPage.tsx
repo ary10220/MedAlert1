@@ -35,14 +35,14 @@ export default function SetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-night px-4">
+    <div className="flex min-h-screen items-center justify-center bg-wash px-4">
       <div className="w-full max-w-sm">
-        <h1 className="mb-2 text-center font-display text-3xl font-semibold tracking-tight">Definí tu contraseña</h1>
-        <p className="mb-8 text-center text-sm text-white/45">{profile ? `Hola, ${profile.nombre}.` : ''} La vas a usar para entrar al panel.</p>
-        <form onSubmit={submit} noValidate className="flex flex-col gap-5 rounded-xl border border-white/10 bg-white/5 p-8">
+        <h1 className="mb-2 text-center font-display text-3xl font-semibold tracking-tight text-navy">Definí tu contraseña</h1>
+        <p className="mb-8 text-center text-sm text-muted">{profile ? `Hola, ${profile.nombre}.` : ''} La vas a usar para entrar al panel.</p>
+        <form onSubmit={submit} noValidate className="flex flex-col gap-5 rounded-xl border border-line bg-surface p-8 shadow-card">
           <TextField label="Nueva contraseña" type="password" autoComplete="new-password" value={password} onChange={(e) => setPw(e.target.value)} />
           <TextField label="Repetir contraseña" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-          {error && <p role="alert" className="rounded-lg bg-pulse/10 px-3 py-2 text-sm text-red-200">{error}</p>}
+          {error && <p role="alert" className="rounded-lg border border-pulse/40 bg-rose px-3 py-2 text-sm text-pulse-dark">{error}</p>}
           <Button type="submit" disabled={saving} className="py-2.5">{saving ? 'Guardando…' : 'Guardar y entrar'}</Button>
         </form>
       </div>

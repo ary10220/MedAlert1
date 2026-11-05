@@ -74,18 +74,18 @@ export default function AlertDetailPage() {
 
   return (
     <div className={ofrecida ? 'pb-40 md:pb-28' : ''}>
-      <Link to="/" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-white/65 hover:text-white">
+      <Link to="/" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
         <Icon name="back" className="h-4 w-4" /> Alertas
       </Link>
 
       {nuestra && (
-        <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-mint/40 bg-mint/10 px-4 py-3 text-sm">
+        <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-mint/40 bg-mintBg px-4 py-3 text-sm text-mint">
           <span className="flex items-center gap-2"><Icon name="check" className="h-4 w-4 text-mint" /> Tu hospital ya despachó esta alerta.</span>
           <Link to={`/active#${inc.id}`} className="font-semibold underline">Ver seguimiento</Link>
         </div>
       )}
       {!ofrecida && !nuestra && (
-        <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-amber/40 bg-amber/10 px-4 py-3 text-sm">
+        <div role="status" className="mb-4 flex items-center gap-2 rounded-lg border border-amber/40 bg-amberBg px-4 py-3 text-sm text-amber">
           <Icon name="info" className="h-4 w-4 shrink-0 text-amber" /> Esta alerta ya no está disponible para tu hospital: otro hospital la tomó o la oferta se cerró.
         </div>
       )}
@@ -94,11 +94,24 @@ export default function AlertDetailPage() {
       <header className="mb-6 flex flex-wrap items-start gap-4">
         <PriorityBadge prioridad={inc.prioridad} />
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-2xl font-semibold leading-tight first-letter:uppercase md:text-3xl">{lugar}</h1>
-          <p className="mt-1 text-sm text-white/65">
+          <h1 className="font-display text-2xl font-semibold leading-tight text-navy first-letter:uppercase md:text-3xl">{lugar}</h1>
+          <p className="mt-1 text-sm text-muted">
             Reportado {fmtTime(inc.created_at)} · {fmtAgo(inc.created_at, now)}
-            {km != null && <> · <strong className="text-white">{fmtKm(km)}</strong> · ETA <strong className="text-white">{etaMinutes(km)} min</strong></>}
+            {km != null && <> · <strong className="text-ink">{fmtKm(km)}</strong> · ETA <strong className="text-ink">{etaMinutes(km)} min</strong></>}
           </p>
+          {/* Datos del reportante en el header para que se vean sin scroll */}
+          {reporter && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <span className="inline-flex items-center gap-1 rounded-md bg-wash px-2 py-1 font-medium text-muted ring-1 ring-inset ring-line">
+                <Icon name="user" className="h-3.5 w-3.5" /> Testigo: <strong className="text-ink">{reporter.nombre || 'Sin nombre'}</strong>
+              </span>
+              {(inc.cantidad_heridos_confirmada ?? ia?.cantidad_heridos_estimada) != null && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-rose px-2 py-1 font-semibold text-pulse-dark ring-1 ring-inset ring-pulse/20">
+                  <Icon name="heart" className="h-3.5 w-3.5" /> {inc.cantidad_heridos_confirmada ?? ia?.cantidad_heridos_estimada} {(inc.cantidad_heridos_confirmada ?? ia?.cantidad_heridos_estimada) === 1 ? 'herido' : 'heridos'}{inc.cantidad_heridos_confirmada != null ? ' confirmados' : ' estimados'}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
@@ -111,16 +124,16 @@ export default function AlertDetailPage() {
                 <>
                   <p className="text-base leading-relaxed">“{ia.scene_description}”</p>
                   <dl className="grid grid-cols-3 gap-3 text-sm">
-                    <div><dt className="text-xs text-white/55">Tipo</dt><dd className="font-semibold capitalize">{inc.tipo_accidente ?? '—'}</dd></div>
-                    <div><dt className="text-xs text-white/55">Heridos estimados</dt><dd className="font-semibold">{ia.cantidad_heridos_estimada}</dd></div>
-                    <div><dt className="text-xs text-white/55">Unidad sugerida</dt><dd className="font-semibold">{TIPO_AMBULANCIA[ia.suggested_unit]}</dd></div>
+                    <div><dt className="text-xs text-muted">Tipo</dt><dd className="font-semibold capitalize">{inc.tipo_accidente ?? '—'}</dd></div>
+                    <div><dt className="text-xs text-muted">Heridos estimados</dt><dd className="font-semibold">{ia.cantidad_heridos_estimada}</dd></div>
+                    <div><dt className="text-xs text-muted">Unidad sugerida</dt><dd className="font-semibold">{TIPO_AMBULANCIA[ia.suggested_unit]}</dd></div>
                   </dl>
-                  <p className="flex items-center gap-1.5 text-xs text-white/55">
+                  <p className="flex items-center gap-1.5 text-xs text-muted">
                     <Icon name="info" className="h-3.5 w-3.5" /> Sugerencia con {Math.round(ia.confidence * 100)}% de confianza. La decisión final es tuya.
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-white/60">La IA todavía no clasificó esta foto. Revisá la imagen antes de despachar.</p>
+                <p className="text-sm text-muted">La IA todavía no clasificó esta foto. Revisá la imagen antes de despachar.</p>
               )}
             </div>
           </Card>
@@ -136,10 +149,10 @@ export default function AlertDetailPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 p-5 text-sm">
               <div>
                 <div className="font-semibold">{reporter?.nombre ?? 'Sin datos'}</div>
-                {reporter?.email && <div className="text-xs text-white/55">{reporter.email}</div>}
+                {reporter?.email && <div className="text-xs text-muted">{reporter.email}</div>}
               </div>
               {reporter?.telefono && (
-                <a href={`tel:${reporter.telefono}`} className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 font-semibold tabular-nums hover:bg-white/15">
+                <a href={`tel:${reporter.telefono}`} className="inline-flex items-center gap-2 rounded-lg bg-wash px-3 py-2 font-semibold tabular-nums hover:bg-line">
                   <Icon name="phone" className="h-4 w-4" /> {reporter.telefono}
                 </a>
               )}
@@ -153,18 +166,18 @@ export default function AlertDetailPage() {
 
       {/* Barra de decisión fija: la acción principal siempre a la vista */}
       {ofrecida && (
-        <div className="fixed inset-x-0 bottom-[60px] z-[850] border-t border-white/10 bg-night/95 backdrop-blur md:bottom-0 md:left-64">
+        <div className="fixed inset-x-0 bottom-[60px] z-[850] border-t border-line bg-surface/95 shadow-card backdrop-blur md:bottom-0 md:left-64">
           <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:px-8 md:py-4">
             <div className="min-w-0 flex-1 text-sm">
               {!fleet.data ? (
-                <span className="text-white/60">Buscando unidad disponible…</span>
+                <span className="text-muted">Buscando unidad disponible…</span>
               ) : unidad && chofer ? (
-                <span className="text-white/75">
-                  Se despacha <strong className="text-white">{unidad.codigo ?? unidad.placa}</strong> ({unidad.tipo ? TIPO_AMBULANCIA[unidad.tipo] : '—'}) con <strong className="text-white">{chofer.nombre}</strong>
-                  {menorNivel && <span className="ml-1 text-amber-100">· menor nivel que el sugerido</span>}
+                <span className="text-ink/80">
+                  Se despacha <strong className="text-ink">{unidad.codigo ?? unidad.placa}</strong> ({unidad.tipo ? TIPO_AMBULANCIA[unidad.tipo] : '—'}) con <strong className="text-ink">{chofer.nombre}</strong>
+                  {menorNivel && <span className="ml-1 text-amber">· menor nivel que el sugerido</span>}
                 </span>
               ) : (
-                <span className="flex items-center gap-1.5 text-red-200">
+                <span className="flex items-center gap-1.5 text-pulse">
                   <Icon name="alert" className="h-4 w-4 shrink-0" /> {unidad ? 'No hay choferes disponibles.' : 'No hay unidades disponibles.'} Considerá rechazar para que la tome otro hospital.
                 </span>
               )}
@@ -249,7 +262,7 @@ function ConfirmDetails({ incident, onSaved }: { incident: Incident; onSaved: ()
   return (
     <Card title="Confirmar datos (opcional)">
       <form onSubmit={submit} className="flex flex-col gap-3 p-5">
-        <p className="text-xs text-white/55">Si hablaste con el testigo, corregí lo que la IA no puede ver. No es obligatorio para despachar.</p>
+        <p className="text-xs text-muted">Si hablaste con el testigo, corregí lo que la IA no puede ver. No es obligatorio para despachar.</p>
         <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
           <TextField label="Heridos" inputMode="numeric" value={heridos} onChange={(e) => setHeridos(e.target.value)} placeholder={incident.cantidad_heridos?.toString() ?? '—'} error={error ?? undefined} />
           <TextField label="Referencia del lugar" value={referencia} maxLength={500} onChange={(e) => setReferencia(e.target.value)} placeholder="Ej.: 4to anillo y Av. Banzer, frente al surtidor" />

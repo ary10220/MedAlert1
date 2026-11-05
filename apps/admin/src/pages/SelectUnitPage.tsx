@@ -49,7 +49,7 @@ export default function SelectUnitPage() {
     return (
       <Card>
         <EmptyState>
-          Esta alerta ya no está ofrecida a tu hospital. <Link to="/" className="font-semibold text-white underline">Volver a alertas</Link>
+          Esta alerta ya no está ofrecida a tu hospital. <Link to="/" className="font-semibold text-ink underline">Volver a alertas</Link>
         </EmptyState>
       </Card>
     )
@@ -74,18 +74,18 @@ export default function SelectUnitPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link to={`/alerts/${incident.id}`} className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-white/65 hover:text-white">
+      <Link to={`/alerts/${incident.id}`} className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
         <Icon name="back" className="h-4 w-4" /> Detalle de la alerta
       </Link>
       <h1 className="font-display text-3xl font-semibold tracking-tight">Elegir unidad y chofer</h1>
-      <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/70">
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted">
         <PriorityBadge prioridad={incident.prioridad} size="sm" />
         <span className="first-letter:uppercase">{incident.referencia || incident.tipo_accidente || 'Ubicación por GPS'}</span>
-        {incident.ia_suggested_type && <span>· IA sugiere <strong className="text-white">{TIPO_AMBULANCIA[incident.ia_suggested_type]}</strong></span>}
+        {incident.ia_suggested_type && <span>· IA sugiere <strong className="text-ink">{TIPO_AMBULANCIA[incident.ia_suggested_type]}</strong></span>}
       </div>
 
       {ordenada.length === 0 ? (
-        <Card className="mt-6"><EmptyState>Tu hospital no tiene ambulancias activas. <Link to="/fleet" className="font-semibold text-white underline">Ir a Flota</Link></EmptyState></Card>
+        <Card className="mt-6"><EmptyState>Tu hospital no tiene ambulancias activas. <Link to="/fleet" className="font-semibold text-ink underline">Ir a Flota</Link></EmptyState></Card>
       ) : (
         <fieldset className="mt-6">
           <legend className="sr-only">Ambulancias del hospital</legend>
@@ -100,10 +100,10 @@ export default function SelectUnitPage() {
                   <label
                     className={`flex items-center gap-4 rounded-xl border px-4 py-4 transition-colors ${
                       !disponible
-                        ? 'cursor-not-allowed border-white/5 bg-night-700/50 opacity-50'
+                        ? 'cursor-not-allowed border-line bg-wash opacity-60'
                         : checked
-                          ? 'cursor-pointer border-pulse bg-pulse/10'
-                          : 'cursor-pointer border-white/10 bg-night-700 hover:border-white/25'
+                          ? 'cursor-pointer border-pulse bg-rose'
+                          : 'cursor-pointer border-line bg-surface hover:border-pulse/40'
                     }`}
                   >
                     <input
@@ -121,10 +121,10 @@ export default function SelectUnitPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-display text-lg font-semibold">{a.codigo ?? a.placa}</span>
-                        <span className="text-sm text-white/60">{typeName(a)}</span>
-                        {esRecomendada && <span className="rounded bg-mint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-night">★ Recomendado</span>}
+                        <span className="text-sm text-muted">{typeName(a)}</span>
+                        {esRecomendada && <span className="rounded bg-mint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">★ Recomendado</span>}
                       </div>
-                      <div className="mt-0.5 text-sm text-white/60">
+                      <div className="mt-0.5 text-sm text-muted">
                         {a.placa} · Chofer titular: {tit?.nombre ?? 'sin asignar'}
                       </div>
                     </div>
@@ -154,7 +154,7 @@ export default function SelectUnitPage() {
       )}
 
       {!recomendada && ordenada.length > 0 && (
-        <p role="alert" className="mt-4 rounded-lg bg-pulse/10 px-4 py-3 text-sm text-red-200">
+        <p role="alert" className="mt-4 rounded-lg border border-pulse/40 bg-rose px-4 py-3 text-sm text-pulse-dark">
           No hay unidades disponibles. Volvé al detalle y rechazá la alerta para que se ofrezca a otro hospital.
         </p>
       )}

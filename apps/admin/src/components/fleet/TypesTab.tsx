@@ -49,7 +49,7 @@ export default function TypesTab({ fleet }: { fleet: Fleet }) {
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-white/55">Nombrá los tipos como los usa tu hospital. La categoría base no se puede cambiar después.</p>
+        <p className="text-sm text-muted">Nombrá los tipos como los usa tu hospital. La categoría base no se puede cambiar después.</p>
         <Button onClick={() => open('new')}>+ Agregar tipo</Button>
       </div>
       <Card>
@@ -62,7 +62,7 @@ export default function TypesTab({ fleet }: { fleet: Fleet }) {
               return (
                 <tr key={t.id} className={t.activo ? '' : 'opacity-55'}>
                   <td className="px-5 py-3 font-semibold">{t.nombre}</td>
-                  <td className="px-5 py-3 text-white/75">{TIPO_AMBULANCIA[t.base_tipo]}</td>
+                  <td className="px-5 py-3 text-ink/80">{TIPO_AMBULANCIA[t.base_tipo]}</td>
                   <td className="px-5 py-3 tabular-nums">{n}</td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2" title={t.activo && inUse(t) ? 'En uso por ambulancias activas' : undefined}>
@@ -72,7 +72,7 @@ export default function TypesTab({ fleet }: { fleet: Fleet }) {
                         onChange={(v) => run(t.id, () => callFunction('manage-ambulance-type', { action: v ? 'activate' : 'deactivate', type_id: t.id }), `Tipo ${t.nombre} ${v ? 'activado' : 'desactivado'}.`)}
                         label={`${t.activo ? 'Desactivar' : 'Activar'} tipo ${t.nombre}`}
                       />
-                      {t.activo && inUse(t) && <span className="text-[11px] text-white/40">en uso</span>}
+                      {t.activo && inUse(t) && <span className="text-[11px] text-muted">en uso</span>}
                     </div>
                   </td>
                   <td className="px-5 py-3 text-right">

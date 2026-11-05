@@ -4,18 +4,18 @@
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
   body {
-    @apply bg-night-800 font-sans text-white antialiased;
+    @apply bg-wash font-sans text-ink antialiased;
   }
+  /* Tipografía escaneable estilo hospital.html */
+  h1, h2, h3 { color: #112b42; letter-spacing: -0.01em; }
 }
 
-/* Mapa oscuro a partir de los mosaicos claros de OpenStreetMap. */
-.map-dark {
-  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.6);
-}
+/* Mapa en tema claro: los mosaicos de OpenStreetMap ya son claros, así que
+   solo se suaviza un poco el contraste. */
 .leaflet-container {
-  background: #1c2c3d;
-  font-family: Manrope, system-ui, sans-serif;
+  background: #e8eef2;
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, Arial, sans-serif;
 }

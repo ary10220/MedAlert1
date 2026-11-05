@@ -10,11 +10,12 @@ import DispatchConfirmPage from './pages/DispatchConfirmPage'
 import ActiveCasesPage from './pages/ActiveCasesPage'
 import HistoryPage from './pages/HistoryPage'
 import FleetPage from './pages/FleetPage'
+import StaffPage from './pages/StaffPage'
 import { ConfirmHost, Toaster } from './components/Feedback'
 
 // Casos de uso de la ficha (app hospital, ahora web):
 // UC-11 login · UC-12 alertas · UC-13 detalle · UC-14 unidad · UC-15 confirmación
-// UC-16 casos activos · UC-17 historial · UC-18 flota
+// UC-16 casos activos · UC-17 historial · UC-18 flota · UC-19 personal de turno
 export default function App() {
   return (
     <BrowserRouter>
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="active" element={<ActiveCasesPage />} />
             <Route path="history" element={<HistoryPage />} />
             <Route path="fleet" element={<FleetPage />} />
+            <Route path="staff" element={<StaffPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

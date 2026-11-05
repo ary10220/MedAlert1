@@ -6,4 +6,5 @@ export const NAV: { to: string; label: string; short: string; icon: IconName; ba
   { to: '/active', label: 'Casos activos', short: 'Activos', icon: 'pulse', badge: 'active' },
   { to: '/history', label: 'Historial', short: 'Historial', icon: 'clock', badge: null },
   { to: '/fleet', label: 'Flota', short: 'Flota', icon: 'truck', badge: null },
+  { to: '/staff', label: 'Personal', short: 'Personal', icon: 'badge', badge: null },
 ]

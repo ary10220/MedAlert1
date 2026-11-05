@@ -120,7 +120,7 @@ export default function DriversTab({ fleet, hospitalId }: { fleet: Fleet; hospit
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-white/55">Solo choferes activos, con licencia vigente y sin otro caso pueden asignarse a un despacho.</p>
+        <p className="text-sm text-muted">Solo choferes activos, con licencia vigente y sin otro caso pueden asignarse a un despacho.</p>
         <Button onClick={() => open('new')}>+ Agregar chofer</Button>
       </div>
 
@@ -133,18 +133,18 @@ export default function DriversTab({ fleet, hospitalId }: { fleet: Fleet; hospit
               <tr key={d.id} className={d.activo ? '' : 'opacity-55'}>
                 <td className="px-5 py-3">
                   <div className="font-semibold">{d.nombre}</div>
-                  <div className="text-xs text-white/45">CI {d.ci}</div>
+                  <div className="text-xs text-muted">CI {d.ci}</div>
                 </td>
-                <td className="whitespace-nowrap px-5 py-3 tabular-nums text-white/75">{d.telefono ?? '—'}</td>
-                <td className="px-5 py-3 text-white/75">
+                <td className="whitespace-nowrap px-5 py-3 tabular-nums text-ink/80">{d.telefono ?? '—'}</td>
+                <td className="px-5 py-3 text-ink/80">
                   {d.licencia_numero ?? '—'}
-                  {d.licencia_categoria && <span className="text-white/45"> · cat. {d.licencia_categoria}</span>}
+                  {d.licencia_categoria && <span className="text-muted"> · cat. {d.licencia_categoria}</span>}
                   {d.licencia_documento_url && (
                     <button type="button" onClick={() => verDocumento(d)} className="ml-2 text-xs font-semibold underline underline-offset-2">Ver doc.</button>
                   )}
                 </td>
                 <td className="whitespace-nowrap px-5 py-3">
-                  <div className="flex items-center gap-2"><LicenseBadge d={d} /><span className="text-xs tabular-nums text-white/45">{d.licencia_vence ?? ''}</span></div>
+                  <div className="flex items-center gap-2"><LicenseBadge d={d} /><span className="text-xs tabular-nums text-muted">{d.licencia_vence ?? ''}</span></div>
                 </td>
                 <td className="px-5 py-3">{busy(d) ? <Badge tone="amber">En caso</Badge> : <Badge tone="neutral">Libre</Badge>}</td>
                 <td className="px-5 py-3">
@@ -177,10 +177,10 @@ export default function DriversTab({ fleet, hospitalId }: { fleet: Fleet; hospit
             <TextField label="Vence" type="date" value={form.licencia_vence} onChange={(e) => setForm({ ...form, licencia_vence: e.target.value })} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="licencia-doc" className="text-xs font-medium uppercase tracking-wider text-white/60">Documento de licencia (opcional)</label>
-            <input id="licencia-doc" type="file" accept={DOC_TYPES.join(',')} onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-white/70 file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
-            {show('file') && <p className="text-xs text-red-300">{show('file')}</p>}
-            {editing !== 'new' && editing?.licencia_documento_url && !file && <p className="text-[11px] text-white/40">Ya tiene un documento cargado; elegí otro solo si querés reemplazarlo.</p>}
+            <label htmlFor="licencia-doc" className="text-xs font-medium uppercase tracking-wider text-muted">Documento de licencia (opcional)</label>
+            <input id="licencia-doc" type="file" accept={DOC_TYPES.join(',')} onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-wash file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink" />
+            {show('file') && <p className="text-xs text-pulse">{show('file')}</p>}
+            {editing !== 'new' && editing?.licencia_documento_url && !file && <p className="text-[11px] text-muted">Ya tiene un documento cargado; elegí otro solo si querés reemplazarlo.</p>}
           </div>
           {formError && <ErrorBox message={formError} />}
           <div className="mt-2 flex justify-end gap-2">

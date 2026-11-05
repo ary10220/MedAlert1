@@ -9,8 +9,8 @@ export default function ProtectedRoute() {
   if (status === 'ready' && needsPassword) return <Navigate to="/set-password" replace />
   if (status === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-night" role="status">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-pulse" aria-hidden />
+      <div className="flex min-h-screen items-center justify-center bg-navy" role="status">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-pulse" aria-hidden />
         <span className="sr-only">Cargando sesión…</span>
       </div>
     )

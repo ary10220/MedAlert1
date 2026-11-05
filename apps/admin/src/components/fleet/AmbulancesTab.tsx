@@ -95,7 +95,7 @@ export default function AmbulancesTab({ fleet }: { fleet: Fleet }) {
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-white/55">
+        <p className="text-sm text-muted">
           {resumen.disponible} disponibles · {resumen.en_servicio} en servicio · {resumen.mantenimiento} en mantenimiento
         </p>
         <Button onClick={() => open('new')} disabled={activeTypes.length === 0}>+ Agregar ambulancia</Button>
@@ -112,9 +112,9 @@ export default function AmbulancesTab({ fleet }: { fleet: Fleet }) {
               return (
                 <tr key={a.id} className={a.activa ? '' : 'opacity-55'}>
                   <td className="px-5 py-3 font-display text-base font-semibold">{a.codigo ?? '—'}</td>
-                  <td className="whitespace-nowrap px-5 py-3 tabular-nums text-white/80">{a.placa ?? '—'}</td>
+                  <td className="whitespace-nowrap px-5 py-3 tabular-nums text-ink">{a.placa ?? '—'}</td>
                   <td className="px-5 py-3">{typeName(a)}</td>
-                  <td className="whitespace-nowrap px-5 py-3 text-white/80">{driverName(a)}</td>
+                  <td className="whitespace-nowrap px-5 py-3 text-ink">{driverName(a)}</td>
                   <td className="px-5 py-3"><Badge tone={ESTADO_AMBULANCIA[a.estado].tone}>{ESTADO_AMBULANCIA[a.estado].label}</Badge></td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2" title={enServicio ? 'No se puede cambiar mientras atiende un caso' : undefined}>
@@ -124,7 +124,7 @@ export default function AmbulancesTab({ fleet }: { fleet: Fleet }) {
                         onChange={(v) => action(a, v ? 'maintenance_on' : 'maintenance_off')}
                         label={`Mantenimiento de ${a.codigo ?? a.placa}`}
                       />
-                      {enServicio && <span className="text-[11px] text-white/40">en caso</span>}
+                      {enServicio && <span className="text-[11px] text-muted">en caso</span>}
                     </div>
                   </td>
                   <td className="px-5 py-3">
@@ -144,7 +144,7 @@ export default function AmbulancesTab({ fleet }: { fleet: Fleet }) {
           </Table>
         )}
       </Card>
-      <p className="mt-3 text-xs text-white/40">Las unidades no se borran: desactivarlas las saca del despacho y conserva el historial.</p>
+      <p className="mt-3 text-xs text-muted">Las unidades no se borran: desactivarlas las saca del despacho y conserva el historial.</p>
 
       <Modal open={editing !== null} title={editing === 'new' ? 'Nueva ambulancia' : `Editar ${editing?.codigo ?? ''}`} onClose={() => setEditing(null)}>
         <form onSubmit={save} noValidate className="flex flex-col gap-4">
@@ -156,7 +156,7 @@ export default function AmbulancesTab({ fleet }: { fleet: Fleet }) {
             <option value="">Seleccionar…</option>
             {fleet.types.filter((t) => t.activo || t.id === form.type_id).map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
           </SelectField>
-          {show('type_id') && <p className="-mt-2 text-xs text-red-300">{show('type_id')}</p>}
+          {show('type_id') && <p className="-mt-2 text-xs text-pulse">{show('type_id')}</p>}
           <SelectField label="Chofer titular (opcional)" value={form.driver_id} onChange={(e) => setForm({ ...form, driver_id: e.target.value })}>
             <option value="">Sin titular</option>
             {activeDrivers.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}

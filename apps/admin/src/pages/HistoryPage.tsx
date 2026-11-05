@@ -9,7 +9,8 @@ import { Badge, Button, Card, EmptyState, ErrorBox, FilterSelect, PageHeader, Sp
 import { PriorityBadge } from '../components/IncidentBits'
 import { ESTADO_INCIDENTE, TIPO_AMBULANCIA, fmtDateTime } from '../lib/format'
 import { fmtDuration, totalMinutes } from '../lib/hospital'
-import type { Prioridad } from '../types'
+import Icon from '../components/Icon'
+import type { Incident, Prioridad } from '../types'
 
 const RANGOS = { all: 'Todo', today: 'Hoy', '7': 'Últimos 7 días', '30': 'Últimos 30 días' } as const
 type Rango = keyof typeof RANGOS
@@ -22,6 +23,17 @@ function desdeISO(r: Rango): string | null {
   return d.toISOString()
 }
 
+/** Coincidencia de palabras: parte el texto en tokens y chequea que cada uno aparezca en algún campo. */
+function matchIncident(q: string, i: Incident): boolean {
+  const tokens = q.toLowerCase().split(/\s+/).filter(Boolean)
+  if (tokens.length === 0) return true
+  const hay = [i.referencia, i.tipo_accidente, i.ia_output?.scene_description, i.ia_output?.tipo_accidente]
+    .filter(Boolean)
+    .map((t) => (t as string).toLowerCase())
+    .join(' · ')
+  return tokens.every((t) => hay.includes(t))
+}
+
 export default function HistoryPage() {
   const hospital = useHospital()
   const fleet = useFleet()
@@ -29,6 +41,7 @@ export default function HistoryPage() {
   const [prioridad, setPrioridad] = useState<Prioridad | 'all'>('all')
   const [estado, setEstado] = useState<'completed' | 'cancelled' | 'all'>('all')
   const [ambulancia, setAmbulancia] = useState('all')
+  const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
 
   const filters: HistoryFilters = useMemo(
@@ -45,16 +58,20 @@ export default function HistoryPage() {
   const q = useQuery(() => fetchHistory(hospital.id, filters, page), [hospital.id, filters, page], { live: false })
   const totalPages = q.data ? Math.max(1, Math.ceil(q.data.total / HISTORY_PAGE)) : 1
 
+  // Filtro por texto: se aplica sobre la página actual (matcheo de palabras en referencia, tipo e IA).
+  const filteredRows = useMemo(() => (q.data ? q.data.rows.filter((r) => matchIncident(search, r)) : []), [q.data, search])
+
   const set = <T,>(setter: (v: T) => void) => (v: T) => {
     setter(v)
     setPage(0)
   }
-  const hayFiltros = rango !== 'all' || prioridad !== 'all' || estado !== 'all' || ambulancia !== 'all'
+  const hayFiltros = rango !== 'all' || prioridad !== 'all' || estado !== 'all' || ambulancia !== 'all' || search.trim() !== ''
   const limpiar = () => {
     setRango('all')
     setPrioridad('all')
     setEstado('all')
     setAmbulancia('all')
+    setSearch('')
     setPage(0)
   }
 
@@ -62,26 +79,46 @@ export default function HistoryPage() {
     <>
       <PageHeader title="Historial" subtitle={q.data ? `${q.data.total} caso(s) cerrados${hayFiltros ? ' con estos filtros' : ''}` : undefined} />
 
-      <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <FilterSelect label="Fecha" value={rango} onChange={(e) => set(setRango)(e.target.value as Rango)}>
-          {(Object.keys(RANGOS) as Rango[]).map((r) => <option key={r} value={r}>{RANGOS[r]}</option>)}
-        </FilterSelect>
-        <FilterSelect label="Prioridad" value={prioridad} onChange={(e) => set(setPrioridad)(e.target.value as Prioridad | 'all')}>
-          <option value="all">Todas</option>
-          <option value="P1">P1 · Crítica</option>
-          <option value="P2">P2 · Urgente</option>
-          <option value="P3">P3 · Leve</option>
-        </FilterSelect>
-        <FilterSelect label="Estado" value={estado} onChange={(e) => set(setEstado)(e.target.value as typeof estado)}>
-          <option value="all">Todos</option>
-          <option value="completed">Completado</option>
-          <option value="cancelled">Cancelado</option>
-        </FilterSelect>
-        <FilterSelect label="Ambulancia" value={ambulancia} onChange={(e) => set(setAmbulancia)(e.target.value)}>
-          <option value="all">Todas</option>
-          {fleet.data?.ambulances.map((a) => <option key={a.id} value={a.id}>{a.codigo ?? a.placa}{a.placa && a.codigo ? ` · ${a.placa}` : ''}</option>)}
-        </FilterSelect>
-        {hayFiltros && <Button variant="ghost" className="px-2 py-1 text-xs" onClick={limpiar}>Limpiar filtros</Button>}
+      <div className="mb-4 flex flex-col gap-3">
+        {/* Buscador por palabras: lupa + coincidencia en referencia/tipo/descripción IA. */}
+        <label className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 shadow-card focus-within:border-pulse/60 focus-within:ring-2 focus-within:ring-pulse/15">
+          <Icon name="search" className="h-4 w-4 shrink-0 text-muted" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+            placeholder="Buscar por lugar, tipo o descripción…"
+            aria-label="Buscar en el historial"
+            className="w-full bg-transparent text-sm text-ink placeholder-muted/70 focus:outline-none"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch('')} className="rounded p-1 text-muted hover:bg-wash hover:text-ink" aria-label="Limpiar búsqueda">
+              <Icon name="x" className="h-4 w-4" />
+            </button>
+          )}
+        </label>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <FilterSelect label="Fecha" value={rango} onChange={(e) => set(setRango)(e.target.value as Rango)}>
+            {(Object.keys(RANGOS) as Rango[]).map((r) => <option key={r} value={r}>{RANGOS[r]}</option>)}
+          </FilterSelect>
+          <FilterSelect label="Triaje" value={prioridad} onChange={(e) => set(setPrioridad)(e.target.value as Prioridad | 'all')}>
+            <option value="all">Todas</option>
+            <option value="P1">Triaje · Crítica</option>
+            <option value="P2">Triaje · Urgente</option>
+            <option value="P3">Triaje · Leve</option>
+          </FilterSelect>
+          <FilterSelect label="Estado" value={estado} onChange={(e) => set(setEstado)(e.target.value as typeof estado)}>
+            <option value="all">Todos</option>
+            <option value="completed">Completado</option>
+            <option value="cancelled">Cancelado</option>
+          </FilterSelect>
+          <FilterSelect label="Ambulancia" value={ambulancia} onChange={(e) => set(setAmbulancia)(e.target.value)}>
+            <option value="all">Todas</option>
+            {fleet.data?.ambulances.map((a) => <option key={a.id} value={a.id}>{a.codigo ?? a.placa}{a.placa && a.codigo ? ` · ${a.placa}` : ''}</option>)}
+          </FilterSelect>
+          {hayFiltros && <Button variant="ghost" className="px-2 py-1 text-xs" onClick={limpiar}>Limpiar filtros</Button>}
+        </div>
       </div>
 
       {q.error && <div className="mb-4"><ErrorBox message={q.error} onRetry={q.refetch} /></div>}
@@ -89,11 +126,15 @@ export default function HistoryPage() {
       <Card>
         {!q.data ? (
           q.loading ? <Spinner label="Cargando historial…" /> : null
-        ) : q.data.rows.length === 0 ? (
-          <EmptyState>{hayFiltros ? 'No hay casos con estos filtros.' : 'Todavía no hay casos cerrados.'}</EmptyState>
+        ) : filteredRows.length === 0 ? (
+          <EmptyState>
+            {search.trim()
+              ? `No hay casos que coincidan con "${search.trim()}" en esta página.`
+              : hayFiltros ? 'No hay casos con estos filtros.' : 'Todavía no hay casos cerrados.'}
+          </EmptyState>
         ) : (
-          <ul className={`divide-y divide-white/5 ${q.loading ? 'opacity-60' : ''}`}>
-            {q.data.rows.map((i) => {
+          <ul className={`divide-y divide-line/60 ${q.loading ? 'opacity-60' : ''}`}>
+            {filteredRows.map((i) => {
               const amb = fleet.data?.ambulances.find((a) => a.id === i.assigned_ambulance_id)
               const chofer = fleet.data?.drivers.find((d) => d.id === i.assigned_driver_id)
               return (
@@ -103,17 +144,17 @@ export default function HistoryPage() {
                     <Badge tone={ESTADO_INCIDENTE[i.estado].tone}>{ESTADO_INCIDENTE[i.estado].label}</Badge>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <Link to={`/alerts/${i.id}`} className="font-semibold hover:underline">{i.referencia || i.tipo_accidente || 'Incidente'}</Link>
-                    {i.ia_output?.scene_description && <div className="line-clamp-2 text-sm text-white/60">{i.ia_output.scene_description}</div>}
-                    <div className="mt-1 text-xs text-white/40">{fmtDateTime(i.created_at)}</div>
+                    <Link to={`/alerts/${i.id}`} className="font-semibold text-ink hover:text-pulse hover:underline">{i.referencia || i.tipo_accidente || 'Incidente'}</Link>
+                    {i.ia_output?.scene_description && <div className="line-clamp-2 text-sm text-muted">{i.ia_output.scene_description}</div>}
+                    <div className="mt-1 text-xs text-muted">{fmtDateTime(i.created_at)}</div>
                   </div>
                   <dl className="grid shrink-0 grid-cols-2 gap-x-6 gap-y-0.5 text-sm sm:w-60">
-                    <dt className="text-xs text-white/45">Duración total</dt>
-                    <dt className="text-xs text-white/45">Ambulancia</dt>
-                    <dd className="font-semibold tabular-nums">{i.estado === 'cancelled' ? '—' : fmtDuration(totalMinutes(i))}</dd>
-                    <dd className="font-semibold">
-                      {amb ? <>{amb.codigo ?? amb.placa} <span className="text-xs font-normal text-white/45">{amb.tipo ? TIPO_AMBULANCIA[amb.tipo] : ''}</span></> : '—'}
-                      {chofer && <div className="text-xs font-normal text-white/45">{chofer.nombre}</div>}
+                    <dt className="text-xs text-muted">Duración total</dt>
+                    <dt className="text-xs text-muted">Ambulancia</dt>
+                    <dd className="font-semibold tabular-nums text-ink">{i.estado === 'cancelled' ? '—' : fmtDuration(totalMinutes(i))}</dd>
+                    <dd className="font-semibold text-ink">
+                      {amb ? <>{amb.codigo ?? amb.placa} <span className="text-xs font-normal text-muted">{amb.tipo ? TIPO_AMBULANCIA[amb.tipo] : ''}</span></> : '—'}
+                      {chofer && <div className="text-xs font-normal text-muted">{chofer.nombre}</div>}
                     </dd>
                   </dl>
                 </li>
@@ -122,9 +163,9 @@ export default function HistoryPage() {
           </ul>
         )}
         {q.data && q.data.total > HISTORY_PAGE && (
-          <div className="flex items-center justify-between border-t border-white/10 px-5 py-3 text-sm">
+          <div className="flex items-center justify-between border-t border-line px-5 py-3 text-sm">
             <Button variant="ghost" disabled={page === 0 || q.loading} onClick={() => setPage((p) => p - 1)}>← Anterior</Button>
-            <span className="text-white/50 tabular-nums">Página {page + 1} de {totalPages}</span>
+            <span className="text-muted tabular-nums">Página {page + 1} de {totalPages}</span>
             <Button variant="ghost" disabled={page + 1 >= totalPages || q.loading} onClick={() => setPage((p) => p + 1)}>Siguiente →</Button>
           </div>
         )}

@@ -15,7 +15,7 @@ import { Toggle } from './ui'
 function CountBadge({ n, urgent }: { n: number; urgent: boolean }) {
   if (n <= 0) return null
   return (
-    <span className={`min-w-[1.25rem] rounded-full px-1.5 text-center text-[11px] font-bold tabular-nums ${urgent ? 'bg-pulse text-white' : 'bg-white/15 text-white'}`}>
+    <span className={`min-w-[1.25rem] rounded-full px-1.5 text-center text-[11px] font-bold tabular-nums ${urgent ? 'bg-pulse text-white' : 'bg-line text-ink'}`}>
       {n}
     </span>
   )
@@ -54,13 +54,13 @@ export default function Sidebar({ pendientes, activos }: { pendientes: number; a
   const counts = { alerts: pendientes, active: activos }
 
   return (
-    <aside className="hidden shrink-0 flex-col border-r border-white/10 bg-night px-4 py-6 md:sticky md:top-0 md:flex md:h-screen md:w-64">
+    <aside className="hidden shrink-0 flex-col border-r border-line bg-surface px-4 py-6 md:sticky md:top-0 md:flex md:h-screen md:w-64">
       {/* UC-11: logo + nombre del hospital después del login */}
       <div className="mb-8 flex items-center gap-3 px-2">
         <HospitalLogo nombre={hospital.nombre} logoPath={hospital.logo_url} />
         <div className="min-w-0">
-          <div className="truncate text-sm font-bold">{hospital.nombre}</div>
-          <div className="text-[11px] font-semibold uppercase tracking-widest text-white/50">
+          <div className="truncate text-sm font-bold text-ink">{hospital.nombre}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-widest text-muted">
             Med<span className="text-pulse">Alert</span> · Despacho
           </div>
         </div>
@@ -74,7 +74,7 @@ export default function Sidebar({ pendientes, activos }: { pendientes: number; a
             end={item.to === '/'}
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                isActive ? 'bg-white/10 text-white' : 'text-white/65 hover:bg-white/5 hover:text-white'
+                isActive ? 'bg-navy text-white' : 'text-ink/80 hover:bg-wash'
               }`
             }
           >
@@ -85,28 +85,28 @@ export default function Sidebar({ pendientes, activos }: { pendientes: number; a
         ))}
       </nav>
 
-      <div className="mt-auto flex flex-col gap-4 border-t border-white/10 px-2 pt-4">
+      <div className="mt-auto flex flex-col gap-4 border-t border-line px-2 pt-4">
         <label className="flex cursor-pointer items-center justify-between gap-3">
           <span>
-            <span className="block text-sm font-semibold">En turno</span>
-            <span className="block text-xs text-white/55">Recibir avisos push</span>
+            <span className="block text-sm font-semibold text-ink">En turno</span>
+            <span className="block text-xs text-muted">Recibir avisos push</span>
           </span>
           <Toggle checked={duty.data ?? false} disabled={duty.data === undefined || dutySaving} onChange={toggleDuty} label="Estoy en turno" />
         </label>
         <label className="flex cursor-pointer items-center justify-between gap-3">
           <span>
-            <span className="block text-sm font-semibold">Sonido de alertas</span>
-            <span className="block text-xs text-white/55">Pitido al llegar una nueva</span>
+            <span className="block text-sm font-semibold text-ink">Sonido de alertas</span>
+            <span className="block text-xs text-muted">Pitido al llegar una nueva</span>
           </span>
           <Toggle checked={sound.enabled} onChange={sound.setEnabled} label="Sonido de alertas nuevas" />
         </label>
-        <div className="flex items-center gap-3 rounded-lg bg-white/[0.04] px-3 py-2.5">
-          <Icon name="user" className="h-5 w-5 shrink-0 text-white/55" />
+        <div className="flex items-center gap-3 rounded-lg bg-wash px-3 py-2.5">
+          <Icon name="user" className="h-5 w-5 shrink-0 text-muted" />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold">{profile.nombre}</div>
-            <div className="truncate text-xs text-white/55">{email}</div>
+            <div className="truncate text-sm font-semibold text-ink">{profile.nombre}</div>
+            <div className="truncate text-xs text-muted">{email}</div>
           </div>
-          <button type="button" onClick={salir} aria-label="Cerrar sesión" title="Cerrar sesión" className="rounded-md p-1.5 text-white/60 hover:bg-white/10 hover:text-white">
+          <button type="button" onClick={salir} aria-label="Cerrar sesión" title="Cerrar sesión" className="rounded-md p-1.5 text-muted hover:bg-line hover:text-ink">
             <Icon name="logout" className="h-4 w-4" />
           </button>
         </div>
@@ -119,13 +119,13 @@ export default function Sidebar({ pendientes, activos }: { pendientes: number; a
 export function MobileTabs({ pendientes, activos }: { pendientes: number; activos: number }) {
   const counts = { alerts: pendientes, active: activos }
   return (
-    <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-[900] grid grid-cols-4 border-t border-white/10 bg-night/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+    <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-[900] grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
       {NAV.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
           end={item.to === '/'}
-          className={({ isActive }) => `relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold ${isActive ? 'text-white' : 'text-white/55'}`}
+          className={({ isActive }) => `relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold ${isActive ? 'text-navy' : 'text-muted'}`}
         >
           {({ isActive }) => (
             <>
@@ -133,7 +133,7 @@ export function MobileTabs({ pendientes, activos }: { pendientes: number; activo
               <span className="relative">
                 <Icon name={item.icon} className="h-6 w-6" />
                 {item.badge && counts[item.badge] > 0 && (
-                  <span className={`absolute -right-2.5 -top-1.5 min-w-[1.1rem] rounded-full px-1 text-center text-[10px] font-bold leading-[1.1rem] ${item.badge === 'alerts' ? 'bg-pulse' : 'bg-white/25'}`}>
+                  <span className={`absolute -right-2.5 -top-1.5 min-w-[1.1rem] rounded-full px-1 text-center text-[10px] font-bold leading-[1.1rem] text-white ${item.badge === 'alerts' ? 'bg-pulse' : 'bg-navy-2'}`}>
                     {counts[item.badge]}
                   </span>
                 )}

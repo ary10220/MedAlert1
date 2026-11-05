@@ -4,9 +4,9 @@ import { Button, Modal } from './ui'
 import Icon from './Icon'
 
 const TOAST_STYLE: Record<ToastTone, string> = {
-  success: 'border-mint/50 bg-[#123228] text-emerald-50',
-  error: 'border-pulse/60 bg-[#3a1418] text-red-50',
-  info: 'border-white/15 bg-night-600 text-white',
+  success: 'border-mint/40 bg-mintBg text-mint',
+  error: 'border-pulse/40 bg-rose text-pulse-dark',
+  info: 'border-line bg-surface text-ink',
 }
 const TOAST_ICON = { success: 'check', error: 'alert', info: 'info' } as const
 
@@ -39,7 +39,7 @@ export function ConfirmHost() {
     <Modal open={!!req} title={req?.title ?? ''} onClose={() => answer(false)}>
       {req && (
         <div className="flex flex-col gap-5">
-          {req.body && <p className="text-sm leading-relaxed text-white/70">{req.body}</p>}
+          {req.body && <p className="text-sm leading-relaxed text-muted">{req.body}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => answer(false)}>Volver</Button>
             <Button variant={req.tone === 'danger' ? 'danger' : 'primary'} onClick={() => answer(true)} autoFocus>
