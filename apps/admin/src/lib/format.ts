@@ -1,4 +1,4 @@
-import type { EstadoAmbulancia, EstadoIncidente, Prioridad, Tier, TipoAmbulancia } from '../types'
+import type { BaseTipo, EstadoAmbulancia, EstadoIncidente, Prioridad } from '../types'
 
 export const ESTADO_INCIDENTE: Record<EstadoIncidente, { label: string; tone: Tone }> = {
   open: { label: 'Reportado', tone: 'pulse' },
@@ -17,15 +17,13 @@ export const PRIORIDAD: Record<Prioridad, { label: string; tone: Tone }> = {
   P3: { label: 'P3 · Leve', tone: 'mint' },
 }
 
-export const TIPO_AMBULANCIA: Record<TipoAmbulancia, string> = { uti: 'UTI', avanzada: 'Avanzada', basica: 'Básica' }
+export const TIPO_AMBULANCIA: Record<BaseTipo, string> = { uti: 'UTI', avanzada: 'Avanzada', basica: 'Básica' }
 
 export const ESTADO_AMBULANCIA: Record<EstadoAmbulancia, { label: string; tone: Tone }> = {
   disponible: { label: 'Disponible', tone: 'mint' },
   en_servicio: { label: 'En servicio', tone: 'amber' },
   mantenimiento: { label: 'Mantenimiento', tone: 'muted' },
 }
-
-export const TIER: Record<Tier, string> = { basic: 'Basic', premium: 'Premium' }
 
 export type Tone = 'pulse' | 'amber' | 'mint' | 'sky' | 'neutral' | 'muted'
 

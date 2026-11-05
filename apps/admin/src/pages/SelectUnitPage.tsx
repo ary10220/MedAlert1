@@ -1,118 +1,175 @@
-// UC-14 · Seleccionar unidad: flota del hospital, sugerencia IA destacada, unidades ocupadas deshabilitadas.
+// UC-14 · Seleccionar unidad y chofer, y despachar con accept-incident (reserva atómica en el backend).
 import { useMemo, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
-import { useDataStore } from '../store/dataStore'
-import { Badge, Button } from '../components/ui'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useFleet, useLayoutData } from '../hooks/useLayoutData'
+import { callFunction, errorMessage, ApiError } from '../lib/api'
+import { availableDrivers as listAvailableDrivers, recommendUnit } from '../lib/dispatch'
+import { bumpData } from '../store/refreshStore'
+import { Badge, Button, Card, EmptyState, ErrorBox, SelectField, Spinner } from '../components/ui'
 import { PriorityBadge } from '../components/IncidentBits'
+import Icon from '../components/Icon'
 import { ESTADO_AMBULANCIA, TIPO_AMBULANCIA } from '../lib/format'
-import type { Ambulance, Incident } from '../types'
-
-const TIPO_RANK = { uti: 3, avanzada: 2, basica: 1 } as const
-
-/** Recomendada = primera unidad disponible del tipo que sugiere la IA; si no hay, la disponible de mayor nivel. */
-function recommend(incident: Incident, flota: Ambulance[]): Ambulance | undefined {
-  const libres = flota.filter((a) => a.activa && a.estado === 'disponible')
-  return libres.find((a) => a.tipo === incident.ia_suggested_type) ?? [...libres].sort((a, b) => TIPO_RANK[b.tipo] - TIPO_RANK[a.tipo])[0]
-}
+import type { Ambulance } from '../types'
 
 export default function SelectUnitPage() {
-  const { id } = useParams()
-  const { incidents, ambulances, dispatch } = useDataStore()
-  const incident = incidents.find((i) => i.id === id)
+  const { id = '' } = useParams()
+  const navigate = useNavigate()
+  const { offers } = useLayoutData()
+  const fleet = useFleet()
+  const offer = offers.data?.find((o) => o.incident_id === id)
+  const incident = offer?.incident
 
-  const flota = useMemo(() => ambulances.filter((a) => a.activa), [ambulances])
-  const recomendada = incident ? recommend(incident, flota) : undefined
-  const [selected, setSelected] = useState<string | null>(recomendada?.id ?? null)
-  const [justDispatched, setJustDispatched] = useState(false)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [driverId, setDriverId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<{ text: string; terminal: boolean } | null>(null)
 
-  // Orden: recomendada primero, luego disponibles, luego ocupadas / mantenimiento.
-  const ordenada = useMemo(
-    () =>
-      [...flota].sort((a, b) => {
-        const score = (x: Ambulance) => (x.id === recomendada?.id ? 0 : x.estado === 'disponible' ? 1 : 2)
-        return score(a) - score(b)
-      }),
-    [flota, recomendada],
-  )
+  const data = fleet.data
+  const typeName = (a: Ambulance) => data?.types.find((t) => t.id === a.type_id)?.nombre ?? (a.tipo ? TIPO_AMBULANCIA[a.tipo] : '—')
+  const availableDrivers = useMemo(() => (data ? listAvailableDrivers(data) : []), [data])
+  const recomendada = useMemo(() => (data ? recommendUnit(data, incident?.ia_suggested_type ?? null) : undefined), [data, incident?.ia_suggested_type])
 
-  if (!incident) return <Navigate to="/" replace />
-  // Recién despachada desde esta pantalla → confirmación (UC-15). Ya atendida por otra vía → detalle.
-  if (incident.estado !== 'searching') {
-    return <Navigate to={justDispatched ? `/alerts/${incident.id}/dispatched` : `/alerts/${incident.id}`} replace />
+  const ordenada = useMemo(() => {
+    if (!data) return []
+    const score = (x: Ambulance) => (x.id === recomendada?.id ? 0 : x.estado === 'disponible' ? 1 : 2)
+    return data.ambulances.filter((a) => a.activa).sort((a, b) => score(a) - score(b))
+  }, [data, recomendada])
+
+  // Unidad y chofer por defecto: la recomendada y su chofer titular si está libre.
+  const ambulanceId = selected ?? recomendada?.id ?? null
+  const ambulance = data?.ambulances.find((a) => a.id === ambulanceId)
+  const titular = ambulance?.driver_id ? availableDrivers.find((d) => d.id === ambulance.driver_id) : undefined
+  const chofer = driverId ? availableDrivers.find((d) => d.id === driverId) : (titular ?? availableDrivers[0])
+
+  if (!offers.data || !data) {
+    if (offers.error || fleet.error) return <ErrorBox message={(offers.error ?? fleet.error)!} onRetry={() => { offers.refetch(); fleet.refetch() }} />
+    return <Card><Spinner label="Cargando flota…" /></Card>
+  }
+  if (!incident) {
+    return (
+      <Card>
+        <EmptyState>
+          Esta alerta ya no está ofrecida a tu hospital. <Link to="/" className="font-semibold text-ink underline">Volver a alertas</Link>
+        </EmptyState>
+      </Card>
+    )
   }
 
-  const despachar = () => {
-    if (!selected) return
-    setJustDispatched(true)
-    dispatch(incident.id, selected)
+  const despachar = async () => {
+    if (!ambulance || !chofer) return
+    setSaving(true)
+    setError(null)
+    try {
+      await callFunction('accept-incident', { incident_id: incident.id, ambulance_id: ambulance.id, driver_id: chofer.id })
+      bumpData()
+      navigate(`/alerts/${incident.id}/dispatched`, { replace: true })
+    } catch (err) {
+      const code = err instanceof ApiError ? err.code : ''
+      setError({ text: errorMessage(err), terminal: code === 'already_taken' || code === 'not_offered' })
+      if (code === 'ambulance_unavailable' || code === 'driver_unavailable' || code === 'driver_busy') fleet.refetch()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link to={`/alerts/${incident.id}`} className="mb-4 inline-block text-sm font-semibold text-white/55 hover:text-white">← Detalle de la alerta</Link>
-      <h1 className="font-display text-3xl font-semibold tracking-tight">Seleccionar unidad</h1>
-      <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/60">
+      <Link to={`/alerts/${incident.id}`} className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
+        <Icon name="back" className="h-4 w-4" /> Detalle de la alerta
+      </Link>
+      <h1 className="font-display text-3xl font-semibold tracking-tight">Elegir unidad y chofer</h1>
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted">
         <PriorityBadge prioridad={incident.prioridad} size="sm" />
-        <span>{incident.referencia}</span>
-        {incident.ia_suggested_type && <span>· IA sugiere <strong className="text-white">{TIPO_AMBULANCIA[incident.ia_suggested_type]}</strong></span>}
+        <span className="first-letter:uppercase">{incident.referencia || incident.tipo_accidente || 'Ubicación por GPS'}</span>
+        {incident.ia_suggested_type && <span>· IA sugiere <strong className="text-ink">{TIPO_AMBULANCIA[incident.ia_suggested_type]}</strong></span>}
       </div>
 
-      <fieldset className="mt-6">
-        <legend className="sr-only">Ambulancias del hospital</legend>
-        <ul className="flex flex-col gap-3">
-          {ordenada.map((a) => {
-            const disponible = a.estado === 'disponible'
-            const esRecomendada = a.id === recomendada?.id
-            const checked = selected === a.id
-            return (
-              <li key={a.id}>
-                <label
-                  className={`flex items-center gap-4 rounded-xl border px-4 py-4 transition-colors ${
-                    !disponible
-                      ? 'cursor-not-allowed border-white/5 bg-night-700/50 opacity-50'
-                      : checked
-                        ? 'cursor-pointer border-pulse bg-pulse/10'
-                        : 'cursor-pointer border-white/10 bg-night-700 hover:border-white/25'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="ambulancia"
-                    value={a.id}
-                    checked={checked}
-                    disabled={!disponible}
-                    onChange={() => setSelected(a.id)}
-                    className="h-4 w-4 accent-[#E63946]"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-display text-lg font-semibold">{a.codigo}</span>
-                      <span className="text-sm text-white/60">{TIPO_AMBULANCIA[a.tipo]}</span>
-                      {esRecomendada && (
-                        <span className="rounded bg-mint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-night">★ Recomendado</span>
-                      )}
+      {ordenada.length === 0 ? (
+        <Card className="mt-6"><EmptyState>Tu hospital no tiene ambulancias activas. <Link to="/fleet" className="font-semibold text-ink underline">Ir a Flota</Link></EmptyState></Card>
+      ) : (
+        <fieldset className="mt-6">
+          <legend className="sr-only">Ambulancias del hospital</legend>
+          <ul className="flex flex-col gap-3">
+            {ordenada.map((a) => {
+              const disponible = a.estado === 'disponible'
+              const esRecomendada = a.id === recomendada?.id
+              const checked = ambulanceId === a.id
+              const tit = data.drivers.find((d) => d.id === a.driver_id)
+              return (
+                <li key={a.id}>
+                  <label
+                    className={`flex items-center gap-4 rounded-xl border px-4 py-4 transition-colors ${
+                      !disponible
+                        ? 'cursor-not-allowed border-line bg-wash opacity-60'
+                        : checked
+                          ? 'cursor-pointer border-pulse bg-rose'
+                          : 'cursor-pointer border-line bg-surface hover:border-pulse/40'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="ambulancia"
+                      value={a.id}
+                      checked={checked}
+                      disabled={!disponible}
+                      onChange={() => {
+                        setSelected(a.id)
+                        setDriverId(null)
+                      }}
+                      className="h-4 w-4 accent-[#E63946]"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-display text-lg font-semibold">{a.codigo ?? a.placa}</span>
+                        <span className="text-sm text-muted">{typeName(a)}</span>
+                        {esRecomendada && <span className="rounded bg-mint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">★ Recomendado</span>}
+                      </div>
+                      <div className="mt-0.5 text-sm text-muted">
+                        {a.placa} · Chofer titular: {tit?.nombre ?? 'sin asignar'}
+                      </div>
                     </div>
-                    <div className="mt-0.5 text-xs text-white/50">
-                      {a.placa} · Chofer de turno: {a.chofer}
-                    </div>
-                  </div>
-                  <Badge tone={ESTADO_AMBULANCIA[a.estado].tone}>{ESTADO_AMBULANCIA[a.estado].label}</Badge>
-                </label>
-              </li>
-            )
-          })}
-        </ul>
-      </fieldset>
-
-      {!recomendada && (
-        <p role="alert" className="mt-4 rounded-lg bg-pulse/10 px-4 py-3 text-sm text-red-200">
-          No hay unidades disponibles. Rechazá la alerta para que se ofrezca a otro hospital.
-        </p>
+                    <Badge tone={ESTADO_AMBULANCIA[a.estado].tone}>{ESTADO_AMBULANCIA[a.estado].label}</Badge>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+        </fieldset>
       )}
 
-      <Button className="mt-6 w-full py-3 text-base" disabled={!selected} onClick={despachar}>
-        DESPACHAR {selected ? ambulances.find((a) => a.id === selected)?.codigo : ''}
-      </Button>
+      {ambulance && (
+        <div className="mt-5">
+          {availableDrivers.length === 0 ? (
+            <ErrorBox message="No hay choferes disponibles (activos, con licencia vigente y sin otro caso). Revisá la pestaña Choferes en Flota." />
+          ) : (
+            <SelectField label="Chofer para este despacho" value={chofer?.id ?? ''} onChange={(e) => setDriverId(e.target.value)}>
+              {availableDrivers.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.nombre}{d.id === ambulance.driver_id ? ' (titular)' : ''}{d.licencia_vence ? ` · lic. vence ${d.licencia_vence}` : ''}
+                </option>
+              ))}
+            </SelectField>
+          )}
+        </div>
+      )}
+
+      {!recomendada && ordenada.length > 0 && (
+        <p role="alert" className="mt-4 rounded-lg border border-pulse/40 bg-rose px-4 py-3 text-sm text-pulse-dark">
+          No hay unidades disponibles. Volvé al detalle y rechazá la alerta para que se ofrezca a otro hospital.
+        </p>
+      )}
+      {error && (
+        <div className="mt-4">
+          <ErrorBox message={error.text} />
+          {error.terminal && <Link to="/" className="mt-2 inline-block text-sm font-semibold underline">Volver a alertas</Link>}
+        </div>
+      )}
+
+      <div className="sticky bottom-[72px] mt-6 md:bottom-4">
+        <Button size="lg" className="w-full shadow-xl" disabled={!ambulance || !chofer || saving || error?.terminal} onClick={despachar}>
+          {saving ? 'Despachando…' : ambulance && chofer ? `Despachar ${ambulance.codigo ?? ''} con ${chofer.nombre}` : 'Elegí una unidad disponible'}
+        </Button>
+      </div>
     </div>
   )
 }

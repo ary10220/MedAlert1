@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
+import SetPasswordPage from './pages/SetPasswordPage'
 import AlertsPage from './pages/AlertsPage'
 import AlertDetailPage from './pages/AlertDetailPage'
 import SelectUnitPage from './pages/SelectUnitPage'
@@ -9,15 +10,18 @@ import DispatchConfirmPage from './pages/DispatchConfirmPage'
 import ActiveCasesPage from './pages/ActiveCasesPage'
 import HistoryPage from './pages/HistoryPage'
 import FleetPage from './pages/FleetPage'
+import StaffPage from './pages/StaffPage'
+import { ConfirmHost, Toaster } from './components/Feedback'
 
 // Casos de uso de la ficha (app hospital, ahora web):
 // UC-11 login · UC-12 alertas · UC-13 detalle · UC-14 unidad · UC-15 confirmación
-// UC-16 casos activos · UC-17 historial · UC-18 flota
+// UC-16 casos activos · UC-17 historial · UC-18 flota · UC-19 personal de turno
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/set-password" element={<SetPasswordPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Layout />}>
             <Route index element={<AlertsPage />} />
@@ -27,10 +31,13 @@ export default function App() {
             <Route path="active" element={<ActiveCasesPage />} />
             <Route path="history" element={<HistoryPage />} />
             <Route path="fleet" element={<FleetPage />} />
+            <Route path="staff" element={<StaffPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Toaster />
+      <ConfirmHost />
     </BrowserRouter>
   )
 }
