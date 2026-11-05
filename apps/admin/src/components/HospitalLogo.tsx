@@ -1,5 +1,22 @@
-/** Logo mock del hospital: iniciales sobre círculo. Reemplazar por una imagen real cuando exista en el schema. */
-export default function HospitalLogo({ nombre, size = 40 }: { nombre: string; size?: number }) {
+import { useEffect, useState } from 'react'
+import { signedUrl } from '../lib/storage'
+
+/** Logo del hospital desde el bucket privado hospital-logos; si no hay, iniciales sobre círculo. */
+export default function HospitalLogo({ nombre, logoPath, size = 40 }: { nombre: string; logoPath?: string | null; size?: number }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    if (logoPath) signedUrl('hospital-logos', logoPath).then((u) => !cancelled && setUrl(u))
+    return () => {
+      cancelled = true
+    }
+  }, [logoPath])
+
+  if (url && !failed) {
+    return <img src={url} alt="" onError={() => setFailed(true)} className="shrink-0 rounded-full bg-white object-cover" style={{ width: size, height: size }} />
+  }
   const initials = nombre
     .split(/\s+/)
     .filter((w) => w.length > 2)

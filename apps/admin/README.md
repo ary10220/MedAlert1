@@ -14,40 +14,45 @@ pnpm build      # typecheck + build
 pnpm lint
 ```
 
-**Modo demo:** todo funciona con datos de prueba (`src/data/mockData.ts`, basados en `mock_hospital.dart` de la ficha). Cualquier email con @ y cualquier contraseña entran como *Dra. Carla Méndez · Clínica Foianini*. Los cambios viven en memoria: al recargar la página se reinician los datos (la sesión sí se mantiene).
+**Configuración:** copiá `.env.example` a `.env.local` y completá `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` del proyecto Supabase. Sin eso, el login muestra el aviso de configuración faltante.
 
-## Casos de uso
+**Cuentas:** no hay registro. El admin crea al operador con `create-staff`; la persona recibe un email de invitación, abre el enlace y define su contraseña en `/set-password`. "¿Olvidaste tu contraseña?" envía un enlace de recuperación a la misma ruta. En Supabase Auth, la *Site URL* y las *Redirect URLs* deben incluir la URL del panel (p. ej. `http://localhost:5173` y la de Netlify).
 
-| UC | Ruta | Qué hace |
-|---|---|---|
-| UC-11 | `/login` | Login del staff, sin registro. Tras entrar muestra logo + nombre del hospital en el sidebar |
-| UC-12 | `/` | Alertas entrantes: foto, prioridad grande (P1 rojo, P2 ámbar, P3 verde), ubicación, distancia, hora, ETA sugerida, botón VER. Llega una alerta simulada cada 15 s (se puede pausar en el sidebar) |
-| UC-13 | `/alerts/:id` | Detalle: foto, prioridad y descripción IA, mapa con hospital + incidente + ruta sugerida, distancia, ETA. RECHAZAR / ACEPTAR Y DESPACHAR |
-| UC-14 | `/alerts/:id/dispatch` | Elegir ambulancia: tipo, placa, estado, chofer. La sugerida por IA aparece primero con "Recomendado"; las en servicio / mantenimiento están deshabilitadas |
-| UC-15 | `/alerts/:id/dispatched` | Transición de 2 s y confirmación: unidad, chofer, ETA, "Ver seguimiento" y "Volver al dashboard" |
-| UC-16 | `/active` | Casos en atención con mini mapa, estado, tiempo desde el despacho y "Actualizar estado" (En ruta → En el lugar → Completado). Al completar, la unidad vuelve a quedar disponible |
-| UC-17 | `/history` | Casos completados/cancelados con filtros (fecha, prioridad, estado, ambulancia), duración total y unidad que atendió |
-| UC-18 | `/fleet` | CRUD de ambulancias (código, placa, tipo, chofer) + toggle de mantenimiento. No se puede eliminar ni mandar a mantenimiento una unidad en servicio |
+## Casos de uso y backend
+
+| UC | Ruta | Lee (RLS) | Escribe (Edge Function) |
+|---|---|---|---|
+| UC-11 | `/login`, `/set-password` | `profiles`, `hospitals` | Supabase Auth |
+| UC-12 | `/` | `incident_offers` abiertas + `incidents`, fotos firmadas de `incident-photos` | — |
+| UC-13 | `/alerts/:id` | `get-incident`, `incident_offers` | `update-incident-details`, `reject-offer`, `report-false-alarm` |
+| UC-14 | `/alerts/:id/dispatch` | `ambulances`, `ambulance_types`, `drivers` | `accept-incident` (unidad + chofer) |
+| UC-15 | `/alerts/:id/dispatched` | `get-incident` | — |
+| UC-16 | `/active` | `incidents` asignados en curso | `update-incident-status`, `report-false-alarm` |
+| UC-17 | `/history` | `incidents` cerrados (filtros y paginación en el servidor) | — |
+| UC-18 | `/fleet` | `ambulances`, `ambulance_types`, `drivers` | `manage-ambulance`, `manage-ambulance-type`, `create-driver`, `update-driver` (+ subida a `driver-licenses`) |
+| — | sidebar | `staff_shifts` | `set-duty` (en turno) |
+
+Tiempo real: el panel se suscribe con Realtime a `incident_offers` e `incidents` (filtrados por RLS) y además refresca cada 15 s, porque cuando otro hospital toma una alerta la fila deja de ser visible y Realtime no avisa.
 
 ## Estructura
 
 ```
 src/
-  types.ts                 tipos espejo del schema SQL
-  data/mockData.ts         datos de prueba
-  store/authStore.ts       sesión (simulada)
-  store/dataStore.ts       alertas, despacho, casos, flota (en memoria)
-  hooks/                   useNow, usePendingAlerts, useActiveCases
-  components/              Layout, Sidebar, IncidentMap, IncidentBits, ui.tsx
+  types.ts                 tipos espejo del schema (init + 0002 + 0003)
+  lib/supabase.ts          cliente Supabase (lee .env.local)
+  lib/api.ts               callFunction() para Edge Functions + mensajes de error
+  lib/queries.ts           lecturas con RLS
+  lib/storage.ts           URLs firmadas y subida a buckets privados
+  lib/geo.ts               distancia y parser de geography (EWKB / GeoJSON)
+  store/authStore.ts       sesión Supabase Auth + perfil + hospital
+  store/refreshStore.ts    tick global (Realtime / refresco) y estado en vivo
+  hooks/                   useQuery, useAction, datos del hospital, fotos firmadas
+  components/              Layout (Realtime), Sidebar, mapa, modales, fleet/*
   pages/                   una página por caso de uso
-  lib/                     formato, geo, distancia/ETA, ruta (OSRM)
 ```
 
-## Notas para conectar el backend (pendiente, lo define Princesa)
+## Notas
 
-- **Supabase:** crear `apps/admin/.env.local` con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (Vite solo expone variables con prefijo `VITE_`; nunca la service role key).
-- **Login:** `supabase.auth.signInWithPassword` y rechazar si `profiles.rol !== 'hospital_staff'` o la cuenta está inactiva.
-- **Alertas en vivo:** realtime sobre `incidents` en estado `searching` dentro del radio (`find_hospitals_in_radius`), reemplazando la simulación de 15 s.
-- **Despacho:** idealmente una RPC que actualice `incidents` y `ambulances` en una sola transacción, para que dos operadores no tomen la misma alerta.
-- **Columnas que el panel usa y el schema aún no tiene:** `ambulances.codigo`, `ambulances.chofer`, una referencia legible de ubicación en `incidents`, el logo del hospital y una tabla para registrar rechazos por hospital.
-- **Mapas:** los mosaicos de OpenStreetMap y el servidor demo de OSRM son solo para desarrollo. En producción usar Mapbox con el token del proyecto.
+- Los mapas usan mosaicos de OpenStreetMap y el servidor demo de OSRM: solo para desarrollo. En producción, Mapbox con el token del proyecto.
+- El ETA es una estimación local (distancia × 1.4 a 40 km/h); el backend no calcula ETA.
+- El rol `admin` no puede entrar a este panel todavía (las rutas `/admin/*` están pendientes).
